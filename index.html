@@ -1,0 +1,146 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Your 2024 Timeline Update</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@300;400;500;700&display=swap" rel="stylesheet">
+    <style>
+        body {
+            font-family: 'Roboto', sans-serif;
+        }
+    </style>
+</head>
+<body class="bg-gray-50">
+    <div class="max-w-4xl mx-auto px-4 py-8">
+        <!-- Header Section -->
+        <header class="mb-8">
+            <h1 class="text-3xl font-normal text-gray-900 mb-4" id="header-title">Im, here's your 2024 Timeline update</h1>
+            <p class="text-sm text-gray-700 mb-6" id="header-description">
+                You're receiving this email because you turned on Location History, a Google Account-level setting that creates Timeline, a personal map of your visited places, routes, and trips. You can view, edit, and delete this data anytime in Timeline.
+            </p>
+
+            <!-- Location History Status -->
+            <div class="mb-6">
+                <a href="#" class="text-sm text-gray-600 hover:text-blue-600 mb-2 block">Explore Timeline</a>
+                <div class="text-sm text-gray-700 mb-2">
+                    <span>Location History: </span>
+                    <span class="font-medium" id="location-status">ON</span>
+                </div>
+                <a href="#" class="text-sm text-blue-600 hover:text-blue-800" id="manage-settings">Manage Settings</a>
+            </div>
+        </header>
+
+        <!-- Map Section -->
+        <section class="mb-12 bg-white rounded-lg shadow-sm overflow-hidden">
+            <div id="map-container" class="w-full h-96 bg-gray-200 relative">
+                <!-- Map will be rendered here -->
+                <img id="map-image" src="" alt="Travel Map" class="w-full h-full object-cover">
+            </div>
+        </section>
+
+        <!-- Statistics Section -->
+        <section class="mb-12">
+            <h2 class="text-xl font-medium text-gray-900 mb-6">Your places in 2024</h2>
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-6" id="statistics-grid">
+                <!-- Statistics cards will be rendered here -->
+            </div>
+        </section>
+
+        <!-- Travel Summary Section -->
+        <section class="mb-12 bg-white rounded-lg shadow-sm p-8">
+            <div class="flex flex-col md:flex-row items-center justify-center">
+                <div class="mb-6 md:mb-0 md:mr-12">
+                    <div class="w-64 h-64 mx-auto relative">
+                        <img src="images/globe.png" alt="Globe" class="w-full h-full object-contain" onerror="this.style.display='none'; this.nextElementSibling.style.position='relative';" />
+                        <div class="absolute inset-0 flex flex-col items-center justify-center pointer-events-none">
+                            <span class="text-4xl font-bold text-gray-900" id="world-percentage">60%</span>
+                            <span class="text-sm text-gray-600 mt-1">around the world</span>
+                        </div>
+                    </div>
+                </div>
+                <div class="text-center md:text-left">
+                    <p class="text-lg text-green-600 mb-2" id="travel-description"></p>
+                </div>
+            </div>
+        </section>
+
+        <!-- Travel Trends Section -->
+        <section class="mb-12 bg-white rounded-lg shadow-sm p-6">
+            <h2 class="text-sm text-gray-600 mb-2">Your 2024 trends</h2>
+            <div class="mb-4">
+                <span class="text-2xl font-bold text-gray-900">Travel</span>
+            </div>
+            <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mb-4" id="travel-trends-grid">
+                <!-- Travel mode cards will be rendered here -->
+            </div>
+            <button class="w-full md:w-auto px-4 py-2 bg-gray-100 text-blue-600 rounded-lg hover:bg-gray-200 text-sm font-medium">
+                See all trends
+            </button>
+        </section>
+
+        <!-- Visit Trends Section -->
+        <section class="mb-12 bg-white rounded-lg shadow-sm p-6">
+            <h2 class="text-sm text-gray-600 mb-2">Your 2024 trends</h2>
+            <div class="mb-4">
+                <span class="text-2xl font-bold text-gray-900">Visits</span>
+            </div>
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-6" id="visit-trends-grid">
+                <!-- Visit trend cards will be rendered here -->
+            </div>
+        </section>
+
+        <!-- Highlights - Cities Section -->
+        <section class="mb-12">
+            <div class="mb-4">
+                <span class="text-sm text-gray-600">Highlights</span>
+                <h2 class="text-2xl font-bold text-gray-900">Cities visited</h2>
+            </div>
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-4" id="cities-grid">
+                <!-- City cards will be rendered here -->
+            </div>
+        </section>
+
+        <!-- Highlights - Places Section -->
+        <section class="mb-12">
+            <div class="mb-4">
+                <span class="text-sm text-gray-600">Highlights</span>
+                <h2 class="text-2xl font-bold text-gray-900">Places visited</h2>
+            </div>
+            <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6" id="places-grid">
+                <!-- Place cards will be rendered here -->
+            </div>
+        </section>
+
+        <!-- Trip Highlights Section -->
+        <section class="mb-12 bg-white rounded-lg shadow-sm overflow-hidden">
+            <div id="trip-highlights">
+                <!-- Trip highlights will be rendered here -->
+            </div>
+        </section>
+
+        <!-- All-Time Data Section -->
+        <section class="mb-12 bg-white rounded-lg shadow-sm p-8">
+            <div class="flex flex-col md:flex-row items-center justify-between">
+                <div class="mb-6 md:mb-0">
+                    <h2 class="text-xl font-medium text-gray-900 mb-4">Your all time data</h2>
+                    <div class="grid grid-cols-3 gap-6" id="all-time-stats">
+                        <!-- All-time statistics will be rendered here -->
+                    </div>
+                </div>
+            </div>
+            <div class="mt-8 pt-8 border-t border-gray-200">
+                <h3 class="text-lg font-medium text-gray-900 mb-2">Manage your Location History</h3>
+                <p class="text-sm text-gray-600 mb-4">Visit your Timeline to view, edit, and delete your Location History.</p>
+                <a href="#" class="inline-block px-4 py-2 bg-gray-100 text-blue-600 rounded-lg hover:bg-gray-200">Go to your Timeline</a>
+            </div>
+        </section>
+    </div>
+
+    <script src="script.js"></script>
+</body>
+</html>
+
