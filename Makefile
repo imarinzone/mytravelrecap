@@ -1,4 +1,4 @@
-.PHONY: help install up down restart logs psql schema test import import-dry-run import-no-geocode clean
+.PHONY: help install up up-backend down restart logs logs-backend psql schema test import import-dry-run import-no-geocode clean build-backend
 
 # Default target
 help:
@@ -6,25 +6,30 @@ help:
 	@echo ""
 	@echo "Setup:"
 	@echo "  make install          - Install Python dependencies"
-	@echo "  make up               - Start Postgres container"
-	@echo "  make down             - Stop and remove Postgres container"
-	@echo "  make restart           - Restart Postgres container"
+	@echo "  make up               - Start Postgres and backend containers"
+	@echo "  make up-backend       - Start backend container only"
+	@echo "  make down             - Stop and remove all containers"
+	@echo "  make restart          - Restart all containers"
+	@echo "  make build-backend    - Build backend Docker image"
 	@echo ""
 	@echo "Database:"
 	@echo "  make psql             - Connect to Postgres database"
-	@echo "  make schema            - View database schema"
+	@echo "  make schema           - View database schema"
+	@echo ""
+	@echo "Backend:"
+	@echo "  make logs-backend     - View backend container logs"
 	@echo ""
 	@echo "Import:"
-	@echo "  make import            - Import visits with geocoding (full)"
-	@echo "  make import-dry-run    - Preview import without inserting"
+	@echo "  make import           - Import visits with geocoding (full)"
+	@echo "  make import-dry-run   - Preview import without inserting"
 	@echo "  make import-no-geocode - Import visits without geocoding (faster)"
 	@echo ""
 	@echo "Testing:"
-	@echo "  make test              - Run tests to verify setup (DB connection, dependencies)"
+	@echo "  make test             - Run tests to verify setup (DB connection, dependencies)"
 	@echo ""
 	@echo "Utilities:"
-	@echo "  make logs              - View Postgres container logs"
-	@echo "  make clean             - Remove Python cache files"
+	@echo "  make logs             - View Postgres container logs"
+	@echo "  make clean            - Remove Python cache files"
 	@echo ""
 
 # Install Python dependencies
@@ -33,21 +38,34 @@ install:
 	pip install -r requirements.txt
 
 # Docker Compose commands
-up:
-	@echo "Starting Postgres container..."
-	docker-compose up -d postgres
-	@echo "Waiting for database to be ready..."
-	@sleep 3
+up: build-backend
+	@echo "Starting Postgres and backend containers..."
+	docker-compose up -d
+	@echo "Waiting for services to be ready..."
+	@sleep 5
 	@echo "✓ Postgres is ready on localhost:5432"
+	@echo "✓ Backend API is ready on http://localhost:8080"
+
+up-backend: build-backend
+	@echo "Starting backend container..."
+	docker-compose up -d backend
+	@echo "✓ Backend API is ready on http://localhost:8080"
+
+build-backend:
+	@echo "Building backend Docker image..."
+	docker-compose build backend
 
 down:
-	@echo "Stopping Postgres container..."
+	@echo "Stopping all containers..."
 	docker-compose down
 
 restart: down up
 
 logs:
 	docker-compose logs -f postgres
+
+logs-backend:
+	docker-compose logs -f backend
 
 # Database connection
 psql:
@@ -96,6 +114,10 @@ test:
 	@echo "6. Testing import script (syntax check)..."
 	@python3 -m py_compile scripts/import_visits.py && echo "   ✓ Import script syntax is valid" || (echo "   ✗ Import script has syntax errors" && exit 1)
 	@echo ""
+	@echo "7. Checking backend service..."
+	@docker-compose ps backend 2>/dev/null | grep -q "Up" && echo "   ✓ Backend container is running" || echo "   ⚠ Backend container not running - run 'make up-backend'"
+	@curl -s http://localhost:8080/api/place-locations > /dev/null 2>&1 && echo "   ✓ Backend API is responding" || echo "   ⚠ Backend API not responding - ensure backend is running"
+	@echo ""
 	@echo "=========================================="
 	@echo "✓ All tests passed! Setup is ready."
 	@echo "=========================================="
@@ -104,6 +126,7 @@ test:
 	@echo "  - Run 'make import-dry-run' to preview import"
 	@echo "  - Run 'make import' to import with geocoding"
 	@echo "  - Run 'make import-no-geocode' for faster import"
+	@echo "  - Open index.html in a browser to view the map"
 
 # Clean Python cache
 clean:

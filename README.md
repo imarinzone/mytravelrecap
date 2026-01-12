@@ -18,16 +18,22 @@ A single-page static website that recreates the Google Timeline 2024 update inte
 
 ```
 travelrecap.my/
-├── index.html            # Main single-page website
+├── index.html            # Main single-page website (static frontend)
+├── script.js             # Frontend logic (Leaflet map, API calls)
 ├── data/
 │   ├── timeline.json     # All travel data in JSON format (used by current frontend)
 │   └── GoogleTimeline.json # Raw Google Takeout timeline export (large)
-
+├── images/
+│   └── globe.png         # Globe image for travel summary card
+├── backend/
+│   ├── main.go           # Go HTTP API server (place_locations endpoint)
+│   ├── go.mod            # Go module + dependencies
+│   └── Dockerfile        # Backend Docker build
 ├── db/
 │   └── schema.sql        # Postgres schema (visits, place_locations tables)
 ├── scripts/
 │   └── import_visits.py  # Python script to import visit data from GoogleTimeline.json
-├── docker-compose.yaml   # Dockerized Postgres
+├── docker-compose.yaml   # Dockerized Postgres + backend API
 ├── requirements.txt      # Python dependencies (psycopg2-binary, geopy)
 └── README.md             # This file
 ```
@@ -36,28 +42,43 @@ travelrecap.my/
 
 ### Frontend only (static)
 
-1. Clone or download this repository
-2. Open `index.html` in a web browser
-   - For local development, you may need to serve the files using a local server to avoid CORS issues when loading the JSON file
-   - You can use Python's built-in server: `python -m http.server 8000`
-   - Or use Node.js: `npx serve`
-   - Then open `http://localhost:8000` in your browser
+This mode renders all the non-interactive statistics from `data/timeline.json` without requiring Docker or a database.  
+The interactive Leaflet map section will show a friendly message if the backend API is not running.
 
-### Backend + Postgres with Docker
+1. Clone or download this repository
+2. From the project root, start a simple static server (recommended to avoid CORS issues):
+   - Using Python: `python -m http.server 8000`
+   - Or using Node.js: `npx serve`
+3. Open `http://localhost:8000/index.html` in your browser
+
+### Frontend + Backend + Postgres (full experience)
 
 Prerequisites:
 - Docker and Docker Compose installed
+- Python 3.7+ installed (for the import script)
 
-1. From the project root, start the Postgres container:
-   - `docker-compose up -d postgres`
-2. On first startup, the Postgres container will:
-   - Create the `travelrecap` database
-   - Automatically execute `db/schema.sql` to create tables
-3. Once the container is healthy:
-   - Postgres will be available on `localhost:5432` with:
-     - user: `travelrecap`
-     - password: `travelrecap_password`
-     - database: `travelrecap`
+1. Start Postgres and the Go backend API (from project root):
+   ```bash
+   make up
+   ```
+   This will:
+   - Start the Postgres container
+   - Apply `db/schema.sql` on first startup
+   - Build and start the Go backend on `http://localhost:8080`
+2. Import your Google Timeline data into Postgres:
+   ```bash
+   make install           # once, to install Python deps
+   make import            # or: make import-dry-run / make import-no-geocode
+   ```
+3. Serve the frontend (from project root):
+   ```bash
+   python -m http.server 8000
+   # or: npx serve
+   ```
+4. Open `http://localhost:8000/index.html` in your browser.
+   - All static cards are rendered from `data/timeline.json`
+   - The **Interactive Map** section calls `http://localhost:8080/api/place-locations`
+     to plot all `place_locations` on a Leaflet map with CartoDB light/dark styles.
 
 ### Importing Visit Data from GoogleTimeline.json
 

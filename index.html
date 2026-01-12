@@ -8,6 +8,11 @@
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@300;400;500;700&display=swap" rel="stylesheet">
+    <!-- Leaflet CSS -->
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    <!-- Leaflet Marker Cluster CSS -->
+    <link rel="stylesheet" href="https://unpkg.com/leaflet.markercluster@1.5.3/dist/MarkerCluster.css" />
+    <link rel="stylesheet" href="https://unpkg.com/leaflet.markercluster@1.5.3/dist/MarkerCluster.Default.css" />
     <style>
         body {
             font-family: 'Roboto', sans-serif;
@@ -40,6 +45,24 @@
                 <!-- Map will be rendered here -->
                 <img id="map-image" src="" alt="Travel Map" class="w-full h-full object-cover">
             </div>
+        </section>
+
+        <!-- Interactive Leaflet Map Section -->
+        <section class="mb-12 bg-white rounded-lg shadow-sm overflow-hidden">
+            <div class="p-4 border-b border-gray-200">
+                <div class="flex items-center justify-between mb-2">
+                    <h2 class="text-lg font-medium text-gray-900">Interactive Map</h2>
+                    <div class="flex gap-2">
+                        <button id="map-style-light" class="px-4 py-2 text-sm font-medium rounded-lg bg-blue-600 text-white hover:bg-blue-700 transition-colors">
+                            Light
+                        </button>
+                        <button id="map-style-dark" class="px-4 py-2 text-sm font-medium rounded-lg bg-gray-200 text-gray-700 hover:bg-gray-300 transition-colors">
+                            Dark
+                        </button>
+                    </div>
+                </div>
+            </div>
+            <div id="map" class="w-full h-96"></div>
         </section>
 
         <!-- Statistics Section -->
@@ -140,6 +163,10 @@
         </section>
     </div>
 
+    <!-- Leaflet JS -->
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    <!-- Leaflet Marker Cluster JS -->
+    <script src="https://unpkg.com/leaflet.markercluster@1.5.3/dist/leaflet.markercluster.js"></script>
     <script src="script.js"></script>
 </body>
 </html>
