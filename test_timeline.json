@@ -1,0 +1,55 @@
+{
+  "semanticSegments": [
+    {
+      "startTime": "2024-01-15T10:00:00.000Z",
+      "endTime": "2024-01-15T12:00:00.000Z",
+      "visit": {
+        "hierarchyLevel": 1,
+        "probability": 0.9,
+        "topCandidate": {
+          "placeId": "ChIJ2e8N3kYcqzsRQrO8j5Qz9s",
+          "semanticType": "RESTAURANT",
+          "placeLocation": {
+            "latLng": "12.9716°, 77.5946°",
+            "address": "Bangalore, Karnataka, India",
+            "name": "Cubbon Park"
+          }
+        }
+      }
+    },
+    {
+      "startTime": "2023-05-20T14:30:00.000Z",
+      "endTime": "2023-05-20T16:00:00.000Z",
+      "visit": {
+        "hierarchyLevel": 1,
+        "probability": 0.85,
+        "topCandidate": {
+          "placeId": "ChIJ-bI2uVwcdkgRGHt0YkM4uJ8",
+          "semanticType": "MUSEUM",
+          "placeLocation": {
+            "latLng": "51.5074°, -0.1278°",
+            "address": "London, UK",
+            "name": "The British Museum"
+          }
+        }
+      }
+    },
+    {
+      "startTime": "2024-03-10T09:00:00.000Z",
+      "endTime": "2024-03-10T11:00:00.000Z",
+      "visit": {
+        "hierarchyLevel": 1,
+        "probability": 0.95,
+        "topCandidate": {
+          "placeId": "ChIJOwg_06VPwokRYv534kXDnAA",
+          "semanticType": "PARK",
+          "placeLocation": {
+            "latLng": "40.785091°, -73.968285°",
+            "address": "New York, NY, USA",
+            "name": "Central Park"
+          }
+        }
+      }
+    }
+  ]
+}

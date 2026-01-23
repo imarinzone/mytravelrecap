@@ -3,6 +3,9 @@ let map = null;
 let markers = null;
 let currentStyle = 'light';
 let selectedYear = null;
+let allLocations = []; // Store loaded locations for filtering
+
+// CartoDB Tile Layer URLs
 
 // CartoDB Tile Layer URLs
 const tileLayers = {
@@ -64,7 +67,7 @@ function initializeYearFilter() {
     const yearSelect = document.getElementById('map-year-filter');
     const currentYear = new Date().getFullYear();
     const startYear = 2020; // Adjust as needed
-    
+
     // Generate year options (from startYear to currentYear, descending)
     for (let year = currentYear; year >= startYear; year--) {
         const option = document.createElement('option');
@@ -74,83 +77,149 @@ function initializeYearFilter() {
     }
 }
 
-// Load place locations from API
-async function loadPlaceLocations() {
-    try {
-        // Clear existing markers
-        markers.clearLayers();
-        
-        // Build API URL with optional year filter
-        let apiUrl = 'http://localhost:8080/api/place-locations';
-        if (selectedYear) {
-            apiUrl += `?year=${selectedYear}`;
-        }
-        
-        const response = await fetch(apiUrl);
-        if (!response.ok) {
-            throw new Error(`HTTP error! status: ${response.status}`);
-        }
-        const locations = await response.json();
+// Render markers based on current data and filters
+function renderMarkers() {
+    // Clear existing markers
+    markers.clearLayers();
 
-        if (locations.length === 0) {
-            console.warn('No place locations found');
-            return;
-        }
-
-        // Calculate bounds
-        const bounds = L.latLngBounds([]);
-        locations.forEach(loc => {
-            bounds.extend([loc.lat, loc.lng]);
-        });
-
-        // Fit map to bounds
-        map.fitBounds(bounds, { padding: [50, 50] });
-
-        // Add markers as individual points
-        locations.forEach(loc => {
-            const popupContent = buildPopupContent(loc);
-            // Create a custom icon for a simple red point
-            const pointIcon = L.divIcon({
-                className: 'custom-point-marker',
-                html: '<div style="width: 8px; height: 8px; background-color: #ef4444; border: 2px solid white; border-radius: 50%; box-shadow: 0 2px 4px rgba(0,0,0,0.3);"></div>',
-                iconSize: [8, 8],
-                iconAnchor: [4, 4]
-            });
-            const marker = L.marker([loc.lat, loc.lng], { icon: pointIcon })
-                .bindPopup(popupContent);
-            markers.addLayer(marker);
-        });
-
-        console.log(`Loaded ${locations.length} place locations`);
-    } catch (error) {
-        console.error('Error loading place locations:', error);
-        // Show error message in map container
-        const mapDiv = document.getElementById('map');
-        mapDiv.innerHTML = `
-            <div class="flex items-center justify-center h-full bg-gray-100">
-                <div class="text-center p-4">
-                    <p class="text-gray-600 mb-2">Unable to load map data</p>
-                    <p class="text-sm text-gray-500">Please ensure the backend API is running</p>
-                </div>
-            </div>
-        `;
+    if (allLocations.length === 0) {
+        return;
     }
+
+    let filteredLocations = allLocations;
+
+    // Apply year filter if selected
+    if (selectedYear) {
+        const yearInt = parseInt(selectedYear);
+        filteredLocations = allLocations.filter(loc => {
+            if (!loc.startTime) return false;
+            const visitYear = new Date(loc.startTime).getFullYear();
+            return visitYear === yearInt;
+        });
+    }
+
+    if (filteredLocations.length === 0) {
+        console.warn('No locations found for selected year');
+        return;
+    }
+
+    // Calculate bounds
+    const bounds = L.latLngBounds([]);
+    filteredLocations.forEach(loc => {
+        bounds.extend([loc.lat, loc.lng]);
+    });
+
+    // Fit map to bounds
+    map.fitBounds(bounds, { padding: [50, 50] });
+
+    // Add markers as individual points
+    filteredLocations.forEach(loc => {
+        const popupContent = buildPopupContent(loc);
+        // Create a custom icon for a simple red point
+        const pointIcon = L.divIcon({
+            className: 'custom-point-marker',
+            html: '<div style="width: 8px; height: 8px; background-color: #ef4444; border: 2px solid white; border-radius: 50%; box-shadow: 0 2px 4px rgba(0,0,0,0.3);"></div>',
+            iconSize: [8, 8],
+            iconAnchor: [4, 4]
+        });
+        const marker = L.marker([loc.lat, loc.lng], { icon: pointIcon })
+            .bindPopup(popupContent);
+        markers.addLayer(marker);
+    });
+
+    console.log(`Rendered ${filteredLocations.length} markers`);
+}
+
+// Handle file upload
+function handleFileUpload(event) {
+    const file = event.target.files[0];
+    if (!file) {
+        return;
+    }
+
+    const statusSpan = document.getElementById('upload-status');
+    statusSpan.textContent = 'Parsing...';
+
+    const reader = new FileReader();
+    reader.onload = function (e) {
+        try {
+            const json = JSON.parse(e.target.result);
+            processTimelineData(json);
+            statusSpan.textContent = `Loaded ${allLocations.length} visits`;
+            statusSpan.className = 'text-sm font-medium text-green-600';
+        } catch (error) {
+            console.error('Error parsing JSON:', error);
+            statusSpan.textContent = 'Error parsing JSON file';
+            statusSpan.className = 'text-sm font-medium text-red-600';
+        }
+    };
+    reader.readAsText(file);
+}
+
+// Process Google Timeline JSON
+function processTimelineData(data) {
+    allLocations = [];
+    const segments = data.semanticSegments || [];
+
+    segments.forEach(segment => {
+        if (segment.visit) {
+            const visit = segment.visit;
+            if (visit.topCandidate && visit.topCandidate.placeLocation && visit.topCandidate.placeLocation.latLng) {
+                const latLngStr = visit.topCandidate.placeLocation.latLng;
+                // Parse "lat°, lng°" format
+                const parts = latLngStr.replace(/°/g, '').split(',');
+                if (parts.length === 2) {
+                    const lat = parseFloat(parts[0].trim());
+                    const lng = parseFloat(parts[1].trim());
+
+                    if (!isNaN(lat) && !isNaN(lng)) {
+                        allLocations.push({
+                            lat: lat,
+                            lng: lng,
+                            startTime: segment.startTime, // Keep start time for filtering
+                            // metadata we can extract
+                            address: visit.topCandidate.placeLocation.address,
+                            name: visit.topCandidate.placeLocation.name,
+                            probability: visit.probability
+                        });
+                    }
+                }
+            }
+        }
+    });
+
+    console.log(`Parsed ${allLocations.length} locations`);
+    renderMarkers();
+    initializeYearFilter(); // Re-initialize years based on data if we wanted to be dynamic, but static is fine for now
+}
+
+// Load place locations - REPLACED BY FILE UPLOAD
+function loadPlaceLocations() {
+    // Initial load does nothing now, waiting for file upload
+    const mapDiv = document.getElementById('map');
+    // Optional: Add a "Waiting for data" overlay or similar if needed
 }
 
 // Build popup content for marker
 function buildPopupContent(location) {
     let content = '<div class="text-sm">';
-    if (location.city) {
-        content += `<strong>${location.city}</strong>`;
+
+    if (location.name) {
+        content += `<strong>${location.name}</strong><br>`;
     }
-    if (location.country) {
-        if (location.city) {
-            content += `, ${location.country}`;
-        } else {
-            content += `<strong>${location.country}</strong>`;
-        }
+
+    if (location.address) {
+        content += `<span class="text-xs text-gray-600">${location.address}</span><br>`;
+    } else {
+        content += `<strong>Unknown Location</strong><br>`;
     }
-    content += `<br><span class="text-gray-500">${location.lat.toFixed(4)}, ${location.lng.toFixed(4)}</span>`;
+
+    if (location.startTime) {
+        const date = new Date(location.startTime);
+        content += `<span class="text-xs text-gray-500">${date.toLocaleDateString()}</span><br>`;
+    }
+
+    content += `<span class="text-xs text-gray-400">${location.lat.toFixed(4)}, ${location.lng.toFixed(4)}</span>`;
     content += '</div>';
     return content;
 }
@@ -210,13 +279,13 @@ function onYearFilterChange() {
     const yearSelect = document.getElementById('map-year-filter');
     selectedYear = yearSelect.value === '' ? null : yearSelect.value;
     localStorage.setItem('mapYear', yearSelect.value);
-    loadPlaceLocations();
+    renderMarkers();
 }
 
 // Toggle fullscreen
 function toggleFullscreen() {
     const mapSection = document.querySelector('#map-container-wrapper').closest('section');
-    
+
     if (!document.fullscreenElement && !document.webkitFullscreenElement && !document.msFullscreenElement) {
         // Enter fullscreen
         if (mapSection.requestFullscreen) {
@@ -246,7 +315,7 @@ function handleFullscreenChange() {
     const fullscreenIcon = document.getElementById('fullscreen-icon');
     const fullscreenText = document.getElementById('fullscreen-text');
     const fullscreenBtn = document.getElementById('map-fullscreen');
-    
+
     if (isFullscreen) {
         fullscreenIcon.textContent = '⛶';
         if (fullscreenText) fullscreenText.textContent = 'Exit';
@@ -284,6 +353,12 @@ if (document.readyState === 'loading') {
         document.getElementById('map-year-filter').addEventListener('change', onYearFilterChange);
         // Fullscreen event listener
         document.getElementById('map-fullscreen').addEventListener('click', toggleFullscreen);
+
+        // File input listener
+        const fileInput = document.getElementById('timeline-file-input');
+        if (fileInput) {
+            fileInput.addEventListener('change', handleFileUpload);
+        }
     });
 } else {
     initMap();
@@ -294,5 +369,11 @@ if (document.readyState === 'loading') {
     document.getElementById('map-year-filter').addEventListener('change', onYearFilterChange);
     // Fullscreen event listener
     document.getElementById('map-fullscreen').addEventListener('click', toggleFullscreen);
+
+    // File input listener
+    const fileInput = document.getElementById('timeline-file-input');
+    if (fileInput) {
+        fileInput.addEventListener('change', handleFileUpload);
+    }
 }
 

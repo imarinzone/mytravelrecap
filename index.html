@@ -1,5 +1,6 @@
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -17,6 +18,7 @@
         body {
             font-family: 'Roboto', sans-serif;
         }
+
         /* Fullscreen map styles - takes entire display */
         section:fullscreen,
         section:-webkit-full-screen,
@@ -40,6 +42,7 @@
             border: none !important;
             border-radius: 0 !important;
         }
+
         section:fullscreen .p-4,
         section:-webkit-full-screen .p-4,
         section:-moz-full-screen .p-4,
@@ -48,6 +51,7 @@
             flex-shrink: 0;
             margin: 0 !important;
         }
+
         section:fullscreen #map-container-wrapper,
         section:-webkit-full-screen #map-container-wrapper,
         section:-moz-full-screen #map-container-wrapper,
@@ -59,6 +63,7 @@
             margin: 0 !important;
             padding: 0 !important;
         }
+
         section:fullscreen #map,
         section:-webkit-full-screen #map,
         section:-moz-full-screen #map,
@@ -70,13 +75,17 @@
         }
     </style>
 </head>
+
 <body class="bg-gray-50">
     <div class="max-w-4xl mx-auto px-4 py-8">
         <!-- Header Section -->
         <header class="mb-8">
-            <h1 class="text-3xl font-normal text-gray-900 mb-4" id="header-title">Im, here's your 2024 Timeline update</h1>
+            <h1 class="text-3xl font-normal text-gray-900 mb-4" id="header-title">Im, here's your 2024 Timeline update
+            </h1>
             <p class="text-sm text-gray-700 mb-6" id="header-description">
-                You're receiving this email because you turned on Location History, a Google Account-level setting that creates Timeline, a personal map of your visited places, routes, and trips. You can view, edit, and delete this data anytime in Timeline.
+                You're receiving this email because you turned on Location History, a Google Account-level setting that
+                creates Timeline, a personal map of your visited places, routes, and trips. You can view, edit, and
+                delete this data anytime in Timeline.
             </p>
 
             <!-- Location History Status -->
@@ -90,11 +99,24 @@
             </div>
         </header>
 
-        <!-- Map Section -->
-        <section class="mb-12 bg-white rounded-lg shadow-sm overflow-hidden">
-            <div id="map-container" class="w-full h-96 bg-gray-200 relative">
-                <!-- Map will be rendered here -->
-                <img id="map-image" src="" alt="Travel Map" class="w-full h-full object-cover">
+
+
+        <!-- File Upload Section -->
+        <section class="mb-8 bg-white rounded-lg shadow-sm p-6 border-l-4 border-blue-500">
+            <h2 class="text-xl font-medium text-gray-900 mb-4">Upload Your Timeline Data</h2>
+            <p class="text-sm text-gray-600 mb-4">
+                Select your <code>GoogleTimeline.json</code> file to visualize your visits. Data is processed locally in
+                your browser.
+            </p>
+            <div class="flex items-center gap-4">
+                <input type="file" id="timeline-file-input" accept=".json" class="block w-full text-sm text-gray-500
+                    file:mr-4 file:py-2 file:px-4
+                    file:rounded-full file:border-0
+                    file:text-sm file:font-semibold
+                    file:bg-blue-50 file:text-blue-700
+                    hover:file:bg-blue-100
+                " />
+                <span id="upload-status" class="text-sm font-medium text-gray-500"></span>
             </div>
         </section>
 
@@ -105,16 +127,21 @@
                     <h2 class="text-lg font-medium text-gray-900">Interactive Map</h2>
                     <div class="flex gap-2 items-center">
                         <label for="map-year-filter" class="text-sm text-gray-700 mr-2">Year:</label>
-                        <select id="map-year-filter" class="px-3 py-2 text-sm font-medium rounded-lg border border-gray-300 bg-white text-gray-900 hover:border-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors">
+                        <select id="map-year-filter"
+                            class="px-3 py-2 text-sm font-medium rounded-lg border border-gray-300 bg-white text-gray-900 hover:border-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors">
                             <option value="">All Years</option>
                         </select>
-                        <button id="map-style-light" class="px-4 py-2 text-sm font-medium rounded-lg bg-blue-600 text-white hover:bg-blue-700 transition-colors">
+                        <button id="map-style-light"
+                            class="px-4 py-2 text-sm font-medium rounded-lg bg-blue-600 text-white hover:bg-blue-700 transition-colors">
                             Light
                         </button>
-                        <button id="map-style-dark" class="px-4 py-2 text-sm font-medium rounded-lg bg-gray-200 text-gray-700 hover:bg-gray-300 transition-colors">
+                        <button id="map-style-dark"
+                            class="px-4 py-2 text-sm font-medium rounded-lg bg-gray-200 text-gray-700 hover:bg-gray-300 transition-colors">
                             Dark
                         </button>
-                        <button id="map-fullscreen" class="px-4 py-2 text-sm font-medium rounded-lg bg-gray-200 text-gray-700 hover:bg-gray-300 transition-colors" title="Toggle fullscreen">
+                        <button id="map-fullscreen"
+                            class="px-4 py-2 text-sm font-medium rounded-lg bg-gray-200 text-gray-700 hover:bg-gray-300 transition-colors"
+                            title="Toggle fullscreen">
                             <span id="fullscreen-icon">⛶</span>
                             <span id="fullscreen-text" class="ml-1 hidden sm:inline">Fullscreen</span>
                         </button>
@@ -139,7 +166,8 @@
             <div class="flex flex-col md:flex-row items-center justify-center">
                 <div class="mb-6 md:mb-0 md:mr-12">
                     <div class="w-64 h-64 mx-auto relative">
-                        <img src="images/globe.png" alt="Globe" class="w-full h-full object-contain" onerror="this.style.display='none'; this.nextElementSibling.style.position='relative';" />
+                        <img src="images/globe.png" alt="Globe" class="w-full h-full object-contain"
+                            onerror="this.style.display='none'; this.nextElementSibling.style.position='relative';" />
                         <div class="absolute inset-0 flex flex-col items-center justify-center pointer-events-none">
                             <span class="text-4xl font-bold text-gray-900" id="world-percentage">60%</span>
                             <span class="text-sm text-gray-600 mt-1">around the world</span>
@@ -161,7 +189,8 @@
             <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mb-4" id="travel-trends-grid">
                 <!-- Travel mode cards will be rendered here -->
             </div>
-            <button class="w-full md:w-auto px-4 py-2 bg-gray-100 text-blue-600 rounded-lg hover:bg-gray-200 text-sm font-medium">
+            <button
+                class="w-full md:w-auto px-4 py-2 bg-gray-100 text-blue-600 rounded-lg hover:bg-gray-200 text-sm font-medium">
                 See all trends
             </button>
         </section>
@@ -218,8 +247,10 @@
             </div>
             <div class="mt-8 pt-8 border-t border-gray-200">
                 <h3 class="text-lg font-medium text-gray-900 mb-2">Manage your Location History</h3>
-                <p class="text-sm text-gray-600 mb-4">Visit your Timeline to view, edit, and delete your Location History.</p>
-                <a href="#" class="inline-block px-4 py-2 bg-gray-100 text-blue-600 rounded-lg hover:bg-gray-200">Go to your Timeline</a>
+                <p class="text-sm text-gray-600 mb-4">Visit your Timeline to view, edit, and delete your Location
+                    History.</p>
+                <a href="#" class="inline-block px-4 py-2 bg-gray-100 text-blue-600 rounded-lg hover:bg-gray-200">Go to
+                    your Timeline</a>
             </div>
         </section>
     </div>
@@ -230,6 +261,5 @@
     <script src="https://unpkg.com/leaflet.markercluster@1.5.3/dist/leaflet.markercluster.js"></script>
     <script src="script.js"></script>
 </body>
+
 </html>
-
-
