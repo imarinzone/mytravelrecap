@@ -100,7 +100,7 @@ function handleFileUpload(event) {
     reader.onload = function (e) {
         try {
             const json = JSON.parse(e.target.result);
-            processTimelineData(json);
+            processAndRenderData(json);
             statusSpan.textContent = `Loaded data successfully`;
             statusSpan.className = 'text-sm font-medium text-green-600';
         } catch (error) {
@@ -112,51 +112,19 @@ function handleFileUpload(event) {
     reader.readAsText(file);
 }
 
-// Process Google Timeline JSON
-function processTimelineData(data) {
-    allSegments = data.semanticSegments || [];
-    allLocations = [];
-    const years = new Set();
+// Process Google Timeline JSON & Update UI
+function processAndRenderData(json) {
+    // Use the utility to process raw JSON
+    const processed = timelineUtils.processTimelineData(json);
 
-    // 1. Extract Locations and Years
-    allSegments.forEach(segment => {
-        // Collect Years
-        if (segment.startTime) {
-            const year = new Date(segment.startTime).getFullYear();
-            years.add(year);
-        }
-
-        // Collect Locations for Map
-        if (segment.visit) {
-            const visit = segment.visit;
-            if (visit.topCandidate && visit.topCandidate.placeLocation && visit.topCandidate.placeLocation.latLng) {
-                const latLngStr = visit.topCandidate.placeLocation.latLng;
-                const parts = latLngStr.replace(/°/g, '').split(',');
-                if (parts.length === 2) {
-                    const lat = parseFloat(parts[0].trim());
-                    const lng = parseFloat(parts[1].trim());
-
-                    if (!isNaN(lat) && !isNaN(lng)) {
-                        allLocations.push({
-                            lat: lat,
-                            lng: lng,
-                            startTime: segment.startTime,
-                            endTime: segment.endTime,
-                            address: visit.topCandidate.placeLocation.address,
-                            name: visit.topCandidate.placeLocation.name,
-                            probability: visit.probability,
-                            placeId: visit.topCandidate.placeId
-                        });
-                    }
-                }
-            }
-        }
-    });
+    allSegments = processed.allSegments;
+    allLocations = processed.allLocations;
+    const years = processed.years;
 
     console.log(`Parsed ${allLocations.length} locations`);
 
-    // 2. Initialize UI with data
-    initializeYearFilter(Array.from(years));
+    // Initialize UI with data
+    initializeYearFilter(years);
     renderDashboard();
 }
 
@@ -179,10 +147,10 @@ function renderDashboard() {
         document.getElementById('header-title').textContent = `Im, here's your Timeline update`;
     }
 
-    // 3. Calculate Stats
-    const stats = calculateStats(statsSegments);
-    const allTimeStats = calculateStats(allSegments);
-    const advancedStats = calculateAdvancedStats(statsSegments);
+    // 3. Calculate Stats using Utility
+    const stats = timelineUtils.calculateStats(statsSegments);
+    const allTimeStats = timelineUtils.calculateStats(allSegments);
+    const advancedStats = timelineUtils.calculateAdvancedStats(statsSegments);
 
     // 4. Update UI Sections
     renderStatistics(stats);
@@ -202,126 +170,6 @@ function renderDashboard() {
     if (dashboard) {
         dashboard.classList.remove('hidden');
     }
-}
-
-// Calculate comprehensive statistics from segments
-function calculateStats(segments) {
-    const stats = {
-        totalDistanceMeters: 0,
-        totalVisits: 0,
-        countries: new Set(),
-        cities: new Set(),
-        transport: {}, // { type: { count, distanceMeters, durationMs } }
-        visits: {},    // { placeId: { name, count, location, address } }
-        visitTypes: {} // { type: count } e.g. "Restaurant": 10
-    };
-
-    segments.forEach(segment => {
-        // Activity Stats
-        if (segment.activity) {
-            const activity = segment.activity;
-            if (activity.distanceMeters) {
-                stats.totalDistanceMeters += activity.distanceMeters;
-            }
-
-            if (activity.topCandidate && activity.topCandidate.type) {
-                const type = activity.topCandidate.type;
-                if (!stats.transport[type]) {
-                    stats.transport[type] = { count: 0, distanceMeters: 0, durationMs: 0 };
-                }
-                stats.transport[type].count++;
-                if (activity.distanceMeters) stats.transport[type].distanceMeters += activity.distanceMeters;
-
-                const duration = new Date(segment.endTime) - new Date(segment.startTime);
-                stats.transport[type].durationMs += duration;
-            }
-        }
-
-        // Visit Stats
-        if (segment.visit) {
-            stats.totalVisits++;
-            const visit = segment.visit;
-
-            if (visit.topCandidate) {
-                const placeId = visit.topCandidate.placeId;
-                const name = visit.topCandidate.placeLocation?.name || "Unknown Place";
-                const address = visit.topCandidate.placeLocation?.address;
-
-                // Track Unique Cities/Countries (Heuristic based on address)
-                if (address) {
-                    extractLocationDetails(address, stats.cities, stats.countries);
-                }
-
-                if (!stats.visits[placeId]) {
-                    stats.visits[placeId] = {
-                        name: name,
-                        count: 0,
-                        address: address,
-                        latLng: visit.topCandidate.placeLocation?.latLng
-                    };
-                }
-                stats.visits[placeId].count++;
-            }
-        }
-    });
-
-    return stats;
-}
-
-function calculateAdvancedStats(segments) {
-    const stats = {
-        eco: { totalCo2: 0, breakdown: {} },
-        time: { moving: 0, stationary: 0, total: 0 },
-        records: { longestDrive: 0, longestWalk: 0, maxVelocity: 0 }
-    };
-
-    // CO2 Emission Factors (approx g/km)
-    const emissionFactors = {
-        'IN_PASSENGER_VEHICLE': 150,
-        'IN_VEHICLE': 150,
-        'IN_TAXI': 150,
-        'FLYING': 115,
-        'IN_BUS': 80,
-        'IN_TRAIN': 40,
-        'IN_SUBWAY': 40,
-        'WALKING': 0,
-        'RUNNING': 0,
-        'CYCLING': 0,
-        'MOTORCYCLING': 100
-    };
-
-    segments.forEach(segment => {
-        const duration = new Date(segment.endTime) - new Date(segment.startTime);
-        stats.time.total += duration;
-
-        if (segment.activity) {
-            stats.time.moving += duration;
-
-            const type = segment.activity.topCandidate?.type || 'UNKNOWN';
-            const distanceKm = (segment.activity.distanceMeters || 0) / 1000;
-
-            // Eco Calc
-            const factor = emissionFactors[type] || 0;
-            const co2 = distanceKm * factor;
-            stats.eco.totalCo2 += co2;
-            stats.eco.breakdown[type] = (stats.eco.breakdown[type] || 0) + co2;
-
-            // Records
-            if (segment.activity.distanceMeters) {
-                if ((type === 'IN_PASSENGER_VEHICLE' || type === 'IN_VEHICLE') && segment.activity.distanceMeters > stats.records.longestDrive) {
-                    stats.records.longestDrive = segment.activity.distanceMeters;
-                }
-                if ((type === 'WALKING' || type === 'RUNNING') && segment.activity.distanceMeters > stats.records.longestWalk) {
-                    stats.records.longestWalk = segment.activity.distanceMeters;
-                }
-            }
-        }
-        else if (segment.visit) {
-            stats.time.stationary += duration;
-        }
-    });
-
-    return stats;
 }
 
 function renderEcoImpact(ecoStats) {

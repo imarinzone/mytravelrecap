@@ -1,0 +1,23 @@
+{
+  "name": "travelrecap.my",
+  "version": "1.0.0",
+  "description": "Your travel recap using Google Maps Timeline data.",
+  "main": "script.js",
+  "scripts": {
+    "test": "jest"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/imarinzone/travelrecap.my.git"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/imarinzone/travelrecap.my/issues"
+  },
+  "homepage": "https://github.com/imarinzone/travelrecap.my#readme",
+  "devDependencies": {
+    "jest": "^30.2.0"
+  }
+}

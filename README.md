@@ -61,6 +61,28 @@ This application is **100% Client-Side**.
 - **Vanilla JavaScript**: Data processing and DOM manipulation
 - **Leaflet.js**: Interactive maps
 - **CartoDB**: Map tiles
+- **Jest**: Unit testing framework (via Node.js)
+
+## Development & Testing
+
+This project now supports unit testing for its core logic, which is isolated in `timeline-utils.js`.
+
+### 1. Install Dependencies
+Initialize the Node.js environment to install Jest:
+```bash
+npm install
+```
+
+### 2. Run Tests
+Execute the test suite to verify the JSON transformation logic:
+```bash
+npm test
+```
+
+### 3. File Structure for Logic
+- `timeline-utils.js`: Contains pure business logic (JSON parsing, stats calculation, geo helpers).
+- `script.js`: Handles UI rendering and DOM updates, delegating logic to `timelineUtils`.
+- `tests/`: Contains Jest test files.
 
 ## License
 
