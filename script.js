@@ -196,6 +196,12 @@ function renderDashboard() {
     renderEcoImpact(advancedStats.eco);
     renderTimeDistribution(advancedStats.time);
     renderRecordBreakers(advancedStats.records);
+
+    // 6. Reveal Dashboard
+    const dashboard = document.getElementById('dashboard-content');
+    if (dashboard) {
+        dashboard.classList.remove('hidden');
+    }
 }
 
 // Calculate comprehensive statistics from segments
@@ -490,7 +496,7 @@ function renderTravelTrends(transportStats) {
         const durationHours = Math.round(data.durationMs / (1000 * 60 * 60));
 
         const card = document.createElement('div');
-        card.className = 'bg-gray-50 rounded-lg p-4';
+        card.className = 'flex items-center justify-between p-3 bg-gray-50 rounded-lg'; // Simpler list item style
 
         let icon = '❓';
         let label = type;
@@ -504,19 +510,13 @@ function renderTravelTrends(transportStats) {
         else if (type === 'MOTORCYCLING') { icon = '🏍️'; label = 'Motorbike'; }
 
         card.innerHTML = `
-            <div class="flex items-center justify-between mb-2">
-                <span class="text-lg font-bold text-gray-700">${label}</span>
-                <span class="text-2xl">${icon}</span>
+            <div class="flex items-center gap-3">
+                <span class="text-xl">${icon}</span>
+                <span class="font-medium text-gray-700">${label}</span>
             </div>
-            <div class="space-y-1">
-                <div class="flex justify-between text-sm">
-                    <span class="text-gray-500">Distance</span>
-                    <span class="font-medium">${distanceKm.toLocaleString()} km</span>
-                </div>
-                <div class="flex justify-between text-sm">
-                    <span class="text-gray-500">Time</span>
-                    <span class="font-medium">${durationHours} hrs</span>
-                </div>
+            <div class="text-right">
+                <div class="text-sm font-bold text-gray-900">${distanceKm.toLocaleString()} km</div>
+                <div class="text-xs text-gray-500">${durationHours} hrs</div>
             </div>
         `;
         grid.appendChild(card);
