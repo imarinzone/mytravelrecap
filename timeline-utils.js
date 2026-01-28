@@ -43,6 +43,89 @@
         }
     }
 
+    // ===== OFFLINE COUNTRY LOOKUP (GEOJSON + POINT-IN-POLYGON) =====
+
+    // Simple ray‑casting point-in-polygon implementation
+    // NOTE: GeoJSON coordinates are [lng, lat]. This function expects:
+    //  - lat, lng as numbers
+    //  - polygon as an array of [lng, lat] coordinate pairs
+    function pointInPolygon(lat, lng, polygon) {
+        let inside = false;
+        for (let i = 0, j = polygon.length - 1; i < polygon.length; j = i++) {
+            const xi = polygon[i][0]; // lng
+            const yi = polygon[i][1]; // lat
+            const xj = polygon[j][0]; // lng
+            const yj = polygon[j][1]; // lat
+
+            const intersect =
+                ((yi > lat) !== (yj > lat)) &&
+                (lng < (xj - xi) * (lat - yi) / ((yj - yi) || 1e-12) + xi);
+            if (intersect) inside = !inside;
+        }
+        return inside;
+    }
+
+    class CountryLookup {
+        constructor(geojson) {
+            this.features = Array.isArray(geojson?.features) ? geojson.features : [];
+        }
+
+        getCountry(lat, lng) {
+            for (const f of this.features) {
+                const props = f.properties || {};
+                const name = props.ADMIN || props.name || props.NAME || null;
+                const geom = f.geometry;
+                if (!geom || !geom.type || !geom.coordinates) continue;
+
+                if (geom.type === 'Polygon') {
+                    if (geom.coordinates.some(ring => pointInPolygon(lat, lng, ring))) {
+                        return name;
+                    }
+                } else if (geom.type === 'MultiPolygon') {
+                    if (geom.coordinates.some(poly =>
+                        poly.some(ring => pointInPolygon(lat, lng, ring))
+                    )) {
+                        return name;
+                    }
+                }
+            }
+            return null;
+        }
+    }
+
+    let countryLookupInstance = null;
+
+    /**
+     * Configure the offline country lookup with a GeoJSON of country borders.
+     * Call this from the browser (e.g. after fetching data/countries.geojson).
+     */
+    function setCountryGeoJSON(geojson) {
+        try {
+            countryLookupInstance = new CountryLookup(geojson);
+            Logger.info('Country boundaries loaded for offline geocoding', {
+                featureCount: countryLookupInstance.features.length
+            });
+        } catch (e) {
+            Logger.warn('Failed to initialize CountryLookup', e);
+            countryLookupInstance = null;
+        }
+    }
+
+    function getCountryFromLatLng(lat, lng) {
+        if (!countryLookupInstance) return null;
+        return countryLookupInstance.getCountry(lat, lng);
+    }
+
+    function parseLatLngString(latLngStr) {
+        if (!latLngStr) return null;
+        const parts = latLngStr.replace(/°/g, '').split(',');
+        if (parts.length !== 2) return null;
+        const lat = parseFloat(parts[0].trim());
+        const lng = parseFloat(parts[1].trim());
+        if (isNaN(lat) || isNaN(lng)) return null;
+        return { lat, lng };
+    }
+
     // Process Google Timeline JSON
     function processTimelineData(data) {
         const allSegments = data.semanticSegments || [];
@@ -60,26 +143,31 @@
             // Collect Locations for Map
             if (segment.visit) {
                 const visit = segment.visit;
-                if (visit.topCandidate && visit.topCandidate.placeLocation && visit.topCandidate.placeLocation.latLng) {
-                    const latLngStr = visit.topCandidate.placeLocation.latLng;
-                    const parts = latLngStr.replace(/°/g, '').split(',');
-                    if (parts.length === 2) {
-                        const lat = parseFloat(parts[0].trim());
-                        const lng = parseFloat(parts[1].trim());
+                const placeLocation = visit.topCandidate && visit.topCandidate.placeLocation;
+                const latLngStr = placeLocation && placeLocation.latLng;
+                const parsed = parseLatLngString(latLngStr);
 
-                        if (!isNaN(lat) && !isNaN(lng)) {
-                            allLocations.push({
-                                lat: lat,
-                                lng: lng,
-                                startTime: segment.startTime,
-                                endTime: segment.endTime,
-                                address: visit.topCandidate.placeLocation.address,
-                                name: visit.topCandidate.placeLocation.name,
-                                probability: visit.probability,
-                                placeId: visit.topCandidate.placeId
-                            });
-                        }
+                if (parsed) {
+                    const { lat, lng } = parsed;
+
+                    // Offline country lookup (if GeoJSON configured)
+                    const country = getCountryFromLatLng(lat, lng);
+                    if (country) {
+                        // Attach to segment for later stats aggregation
+                        segment.country = country;
                     }
+
+                    allLocations.push({
+                        lat: lat,
+                        lng: lng,
+                        startTime: segment.startTime,
+                        endTime: segment.endTime,
+                        address: placeLocation && placeLocation.address,
+                        name: placeLocation && placeLocation.name,
+                        probability: visit.probability,
+                        placeId: visit.topCandidate.placeId,
+                        country: country || null
+                    });
                 }
             }
         });
@@ -130,13 +218,31 @@
                 const visit = segment.visit;
 
                 if (visit.topCandidate) {
+                    const placeLocation = visit.topCandidate.placeLocation || {};
                     const placeId = visit.topCandidate.placeId;
-                    const name = visit.topCandidate.placeLocation?.name || "Unknown Place";
-                    const address = visit.topCandidate.placeLocation?.address;
+                    const name = placeLocation.name || "Unknown Place";
+                    const address = placeLocation.address;
+                    let country = segment.country || null;
 
-                    // Track Unique Cities/Countries (Heuristic based on address)
-                    if (address) {
+                    // If we don't already have a country on the segment, try offline lookup from lat/lng
+                    if (!country && placeLocation.latLng) {
+                        const parsed = parseLatLngString(placeLocation.latLng);
+                        if (parsed) {
+                            country = getCountryFromLatLng(parsed.lat, parsed.lng);
+                        }
+                    }
+
+                    // Track Unique Cities/Countries
+                    if (country) {
+                        stats.countries.add(country);
+                    } else if (address) {
+                        // Fallback heuristic based on address if country lookup fails
                         extractLocationDetails(address, stats.cities, stats.countries);
+                    }
+
+                    // Always keep city stats up to date
+                    if (address) {
+                        extractLocationDetails(address, stats.cities, new Set()); // temporary set: citiesSet still updated
                     }
 
                     if (!stats.visits[placeId]) {
@@ -144,7 +250,8 @@
                             name: name,
                             count: 0,
                             address: address,
-                            latLng: visit.topCandidate.placeLocation?.latLng
+                            latLng: placeLocation.latLng,
+                            country: country || null
                         };
                     }
                     stats.visits[placeId].count++;
@@ -226,6 +333,7 @@
     exports.calculateStats = calculateStats;
     exports.calculateAdvancedStats = calculateAdvancedStats;
     exports.extractLocationDetails = extractLocationDetails;
+    exports.setCountryGeoJSON = setCountryGeoJSON;
     exports.Logger = Logger;
 
 })(typeof exports === 'undefined' ? (this.timelineUtils = {}) : exports);

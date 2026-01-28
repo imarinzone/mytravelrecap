@@ -18,13 +18,14 @@ A single-page static website that recreates the Google Timeline 2024 update inte
 
 ```
 travelrecap.my/
-├── index.html            # Main single-page website (static frontend)
-├── script.js             # Frontend logic (Leaflet map, JSON parsing)
+├── index.html              # Main single-page website (static frontend)
+├── script.js               # Frontend logic (Leaflet map, JSON parsing)
 ├── data/
-│   ├── timeline.json     # Example/Default travel data
+│   ├── timeline.json       # Example/Default travel data (ignored by git)
+│   ├── countries.geojson   # Country borders for offline reverse geocoding (committed)
 ├── images/
-│   └── globe.png         # Globe image for travel summary card
-└── README.md             # This file
+│   └── globe.png           # Globe image for travel summary card
+└── README.md               # This file
 ```
 
 ## Setup & Usage
@@ -46,6 +47,19 @@ Since this is a static website, you can run it with any static file server.
 3. Click the **Choose File** button in the "Upload Your Timeline Data" section.
 4. Select your `GoogleTimeline.json` file.
 5. The map will populate with markers for your visited locations.
+
+### Offline country lookup (`data/countries.geojson`)
+
+To keep everything fully offline while still showing which **countries** you visited, the app uses a local GeoJSON file of country borders:
+
+- **File path**: `data/countries.geojson`
+- **What it does**: Maps each visit’s latitude/longitude to a country name using a point‑in‑polygon check (no external APIs).
+- **Git tracking**: `data/` is ignored by default, but `data/countries.geojson` is explicitly whitelisted in `.gitignore` so it can be versioned and shared.
+
+If you ever need to **update or replace** this file:
+
+1. Download a new world‑countries GeoJSON dataset (follow https://github.com/datasets/geo-countries).
+2. Save it as `data/countries.geojson`, overwriting the existing file.
 
 ## Data Privacy
 

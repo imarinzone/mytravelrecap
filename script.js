@@ -23,6 +23,25 @@ const tileLayers = {
     })
 };
 
+// Load country boundaries GeoJSON for offline country lookup
+async function loadCountryGeoJSON() {
+    if (!window.timelineUtils || typeof timelineUtils.setCountryGeoJSON !== 'function') {
+        return;
+    }
+
+    try {
+        const response = await fetch('data/countries.geojson');
+        if (!response.ok) {
+            timelineUtils.Logger.warn('countries.geojson not found or failed to load');
+            return;
+        }
+        const geojson = await response.json();
+        timelineUtils.setCountryGeoJSON(geojson);
+    } catch (error) {
+        timelineUtils.Logger.warn('Error loading countries.geojson for offline geocoding', error);
+    }
+}
+
 // Initialize map
 function initMap() {
     // Check if Leaflet is loaded
@@ -37,10 +56,10 @@ function initMap() {
         return;
     }
 
-    // Load saved style preference
-    const savedStyle = localStorage.getItem('mapStyle');
-    if (savedStyle === 'dark' || savedStyle === 'light') {
-        currentStyle = savedStyle;
+    // Load saved style preference (now synced with global theme)
+    const savedTheme = localStorage.getItem('appTheme');
+    if (savedTheme === 'dark' || savedTheme === 'light') {
+        currentStyle = savedTheme;
     }
 
     // Create map with default center (will be adjusted based on data bounds)
@@ -72,33 +91,247 @@ function initMap() {
     setupFullscreenListeners();
 }
 
-// Initialize year filter dropdown
+// Initialize year filter as horizontal timeline
 function initializeYearFilter(availableYears) {
-    const yearSelect = document.getElementById('map-year-filter');
-    yearSelect.innerHTML = '<option value="">All Years</option>';
+    const timelineContainer = document.getElementById('timeline-years');
+    const timelineSelectorContainer = document.getElementById('timeline-selector-container');
+    
+    if (!timelineContainer) return;
+    
+    timelineContainer.innerHTML = '';
+    
+    // Sort years ascending for timeline display (oldest to newest left to right)
+    availableYears.sort((a, b) => a - b);
+    
+    // Show the timeline selector if we have years
+    if (availableYears.length > 0 && timelineSelectorContainer) {
+        timelineSelectorContainer.classList.remove('hidden');
+        timelineSelectorContainer.classList.add('flex');
+    }
+    
+    // Add "All Years" button first
+    const allYearsBtn = document.createElement('button');
+    allYearsBtn.className = 'timeline-all-years mr-3' + (!selectedYear ? ' active' : '');
+    allYearsBtn.textContent = 'All';
+    allYearsBtn.dataset.year = '';
+    allYearsBtn.addEventListener('click', () => selectTimelineYear(''));
+    timelineContainer.appendChild(allYearsBtn);
 
-    // Sort years descending
-    availableYears.sort((a, b) => b - a);
-
-    availableYears.forEach(year => {
-        const option = document.createElement('option');
-        option.value = year;
-        option.textContent = year;
+    // Create year points
+    availableYears.forEach((year, index) => {
+        const yearPoint = document.createElement('button');
+        yearPoint.className = 'timeline-year-point w-8 h-8 flex-shrink-0';
         if (selectedYear && parseInt(selectedYear) === year) {
-            option.selected = true;
+            yearPoint.classList.add('active');
         }
-        yearSelect.appendChild(option);
+        yearPoint.dataset.year = year;
+        yearPoint.addEventListener('click', () => selectTimelineYear(year.toString()));
+        
+        // Add label
+        const label = document.createElement('span');
+        label.className = 'timeline-year-label';
+        label.textContent = year;
+        yearPoint.appendChild(label);
+        
+        timelineContainer.appendChild(yearPoint);
     });
 
     // If we have years and no selected year (or invalid one), select the most recent one
     if (availableYears.length > 0 && (!selectedYear || !availableYears.includes(parseInt(selectedYear)))) {
-        selectedYear = availableYears[0];
-        yearSelect.value = selectedYear;
+        selectedYear = availableYears[availableYears.length - 1]; // Most recent (last in ascending order)
         localStorage.setItem('mapYear', selectedYear);
-
+        updateTimelineSelection();
+        
         // Update title to reflect year
         document.getElementById('header-title').textContent = `Here's your ${selectedYear} Timeline update`;
     }
+}
+
+// Select a year from the timeline
+function selectTimelineYear(year) {
+    selectedYear = year === '' ? null : year;
+    localStorage.setItem('mapYear', year);
+    updateTimelineSelection();
+    
+    // Update header title
+    if (selectedYear) {
+        document.getElementById('header-title').textContent = `Here's your ${selectedYear} Timeline update`;
+    } else {
+        document.getElementById('header-title').textContent = `Here's your Timeline update`;
+    }
+    
+    // Trigger the same filter logic as the old dropdown
+    onYearFilterChange({ target: { value: year } });
+}
+
+// Update visual selection state on timeline
+function updateTimelineSelection() {
+    const timelineContainer = document.getElementById('timeline-years');
+    if (!timelineContainer) return;
+    
+    // Update all years button
+    const allYearsBtn = timelineContainer.querySelector('.timeline-all-years');
+    if (allYearsBtn) {
+        if (!selectedYear) {
+            allYearsBtn.classList.add('active');
+        } else {
+            allYearsBtn.classList.remove('active');
+        }
+    }
+    
+    // Update year points
+    const yearPoints = timelineContainer.querySelectorAll('.timeline-year-point');
+    yearPoints.forEach(point => {
+        if (point.dataset.year === selectedYear) {
+            point.classList.add('active');
+        } else {
+            point.classList.remove('active');
+        }
+    });
+}
+
+// ===== GLOBAL THEME SYSTEM =====
+
+let currentTheme = 'light';
+
+// Initialize global theme
+function initGlobalTheme() {
+    // Check for saved theme preference or system preference
+    const savedTheme = localStorage.getItem('appTheme');
+    if (savedTheme === 'dark' || savedTheme === 'light') {
+        currentTheme = savedTheme;
+    } else if (window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches) {
+        currentTheme = 'dark';
+    }
+    
+    applyGlobalTheme(currentTheme);
+    
+    // Listen for system theme changes
+    window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', (e) => {
+        if (!localStorage.getItem('appTheme')) {
+            applyGlobalTheme(e.matches ? 'dark' : 'light');
+        }
+    });
+}
+
+// ===== GLOBAL LOADING OVERLAY =====
+
+function showLoadingScreen(message) {
+    let overlay = document.getElementById('global-loading-overlay');
+
+    if (!overlay) {
+        overlay = document.createElement('div');
+        overlay.id = 'global-loading-overlay';
+        overlay.style.position = 'fixed';
+        overlay.style.inset = '0';
+        overlay.style.zIndex = '9998';
+        overlay.style.display = 'flex';
+        overlay.style.alignItems = 'center';
+        overlay.style.justifyContent = 'center';
+        overlay.style.background = 'rgba(15, 23, 42, 0.75)'; // slate-900/75
+        overlay.style.backdropFilter = 'blur(6px)';
+
+        const inner = document.createElement('div');
+        inner.id = 'global-loading-inner';
+        inner.style.padding = '20px 28px';
+        inner.style.borderRadius = '16px';
+        inner.style.background = 'rgba(15, 23, 42, 0.9)';
+        inner.style.boxShadow = '0 20px 40px rgba(0,0,0,0.45)';
+        inner.style.display = 'flex';
+        inner.style.flexDirection = 'row';
+        inner.style.alignItems = 'center';
+        inner.style.gap = '12px';
+        inner.style.color = '#e5e7eb';
+        inner.style.fontSize = '14px';
+        inner.style.fontWeight = '500';
+
+        const spinner = document.createElement('div');
+        spinner.style.width = '18px';
+        spinner.style.height = '18px';
+        spinner.style.borderRadius = '9999px';
+        spinner.style.border = '2px solid rgba(148, 163, 184, 0.5)';
+        spinner.style.borderTopColor = '#60a5fa';
+        spinner.style.animation = 'travelrecap-spin 0.8s linear infinite';
+
+        const text = document.createElement('span');
+        text.id = 'global-loading-message';
+        text.textContent = message || 'Processing your timeline...';
+
+        inner.appendChild(spinner);
+        inner.appendChild(text);
+        overlay.appendChild(inner);
+        document.body.appendChild(overlay);
+
+        // Inject a minimal keyframes rule once
+        if (!document.getElementById('travelrecap-loading-style')) {
+            const style = document.createElement('style');
+            style.id = 'travelrecap-loading-style';
+            style.textContent = '@keyframes travelrecap-spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }';
+            document.head.appendChild(style);
+        }
+    } else {
+        overlay.style.display = 'flex';
+        const msgEl = document.getElementById('global-loading-message');
+        if (msgEl) {
+            msgEl.textContent = message || 'Processing your timeline...';
+        }
+    }
+}
+
+function hideLoadingScreen() {
+    const overlay = document.getElementById('global-loading-overlay');
+    if (overlay) {
+        overlay.style.display = 'none';
+    }
+}
+
+// Apply global theme
+function applyGlobalTheme(theme) {
+    currentTheme = theme;
+    const body = document.body;
+    
+    if (theme === 'dark') {
+        body.classList.add('dark');
+    } else {
+        body.classList.remove('dark');
+    }
+    
+    // Update theme toggle buttons
+    updateThemeButtons();
+    
+    // Sync map style with global theme
+    if (map) {
+        switchMapStyle(theme);
+    } else {
+        currentStyle = theme;
+    }
+    
+    localStorage.setItem('appTheme', theme);
+}
+
+// Update theme button states
+function updateThemeButtons() {
+    const lightBtn = document.getElementById('theme-light');
+    const darkBtn = document.getElementById('theme-dark');
+    
+    if (!lightBtn || !darkBtn) return;
+    
+    if (currentTheme === 'light') {
+        lightBtn.classList.remove('dark:bg-transparent', 'dark:shadow-none', 'dark:text-gray-400');
+        lightBtn.classList.add('bg-white', 'shadow-sm', 'text-blue-600');
+        darkBtn.classList.remove('dark:bg-gray-700', 'dark:text-white', 'dark:shadow-sm');
+        darkBtn.classList.add('text-gray-500');
+    } else {
+        lightBtn.classList.remove('bg-white', 'shadow-sm', 'text-blue-600');
+        lightBtn.classList.add('bg-transparent', 'text-gray-400');
+        darkBtn.classList.remove('text-gray-500');
+        darkBtn.classList.add('bg-gray-700', 'text-white', 'shadow-sm');
+    }
+}
+
+// Switch global theme
+function switchGlobalTheme(theme) {
+    applyGlobalTheme(theme);
 }
 
 // Handle file upload
@@ -113,17 +346,28 @@ function handleFileUpload(event) {
 
     const reader = new FileReader();
     reader.onload = function (e) {
-        try {
-            const json = JSON.parse(e.target.result);
-            processAndRenderData(json);
-            timelineUtils.Logger.info('Loaded data successfully');
-            statusSpan.className = 'text-sm font-medium text-green-600';
-        } catch (error) {
-            timelineUtils.Logger.error('Error parsing JSON:', error);
-            statusSpan.textContent = 'Error parsing JSON file';
-            statusSpan.className = 'text-sm font-medium text-red-600';
-        }
+        // Show a full-screen loading overlay before heavy parsing/processing
+        showLoadingScreen('Crunching your timeline data. This may take a minute for large files…');
+
+        // Defer heavy work to the next tick so the browser can paint the overlay
+        setTimeout(() => {
+            try {
+                const json = JSON.parse(e.target.result);
+                processAndRenderData(json);
+                timelineUtils.Logger.info('Loaded data successfully');
+                statusSpan.className = 'text-sm font-medium text-green-600';
+                statusSpan.textContent = 'Done!';
+            } catch (error) {
+                timelineUtils.Logger.error('Error parsing JSON:', error);
+                statusSpan.textContent = 'Error parsing JSON file';
+                statusSpan.className = 'text-sm font-medium text-red-600';
+            } finally {
+                hideLoadingScreen();
+            }
+        }, 50);
     };
+    // Let the user know we started processing
+    showLoadingScreen('Loading your Google Timeline file…');
     reader.readAsText(file);
 }
 
@@ -1176,30 +1420,20 @@ function updateMapTheme() {
     }
 }
 
-// Update style button states
+// Update style button states (now handled by global theme system)
 function updateStyleButtons() {
-    const lightBtn = document.getElementById('map-style-light');
-    const darkBtn = document.getElementById('map-style-dark');
-
-    if (currentStyle === 'light') {
-        lightBtn.classList.remove('bg-gray-200', 'text-gray-700', 'hover:bg-gray-300');
-        lightBtn.classList.add('bg-blue-600', 'text-white', 'hover:bg-blue-700');
-        darkBtn.classList.remove('bg-blue-600', 'text-white', 'hover:bg-blue-700');
-        darkBtn.classList.add('bg-gray-200', 'text-gray-700', 'hover:bg-gray-300');
-    } else {
-        darkBtn.classList.remove('bg-gray-200', 'text-gray-700', 'hover:bg-gray-300');
-        darkBtn.classList.add('bg-blue-600', 'text-white', 'hover:bg-blue-700');
-        lightBtn.classList.remove('bg-blue-600', 'text-white', 'hover:bg-blue-700');
-        lightBtn.classList.add('bg-gray-200', 'text-gray-700', 'hover:bg-gray-300');
-    }
+    // This is now handled by updateThemeButtons() in the global theme system
+    // Kept for backwards compatibility
 }
 
-// Handle year filter change
-function onYearFilterChange() {
-    const yearSelect = document.getElementById('map-year-filter');
-    selectedYear = yearSelect.value === '' ? null : yearSelect.value;
-    localStorage.setItem('mapYear', yearSelect.value);
-
+// Handle year filter change (now called from timeline selector)
+function onYearFilterChange(event) {
+    // Support both old dropdown event and new timeline event format
+    if (event && event.target && event.target.value !== undefined) {
+        selectedYear = event.target.value === '' ? null : event.target.value;
+        localStorage.setItem('mapYear', event.target.value);
+    }
+    
     renderDashboard();
 }
 
@@ -1266,14 +1500,24 @@ function setupFullscreenListeners() {
 // Initialize map when DOM is ready
 if (document.readyState === 'loading') {
     document.addEventListener('DOMContentLoaded', () => {
+        // Initialize global theme first
+        initGlobalTheme();
+        
+        // Initialize map
         initMap();
-        // Style switcher event listeners
-        document.getElementById('map-style-light').addEventListener('click', () => switchMapStyle('light'));
-        document.getElementById('map-style-dark').addEventListener('click', () => switchMapStyle('dark'));
-        // Year filter event listener
-        document.getElementById('map-year-filter').addEventListener('change', onYearFilterChange);
+
+        // Load offline country boundaries for reverse geocoding
+        loadCountryGeoJSON();
+        
+        // Global theme toggle event listeners
+        const themeLightBtn = document.getElementById('theme-light');
+        const themeDarkBtn = document.getElementById('theme-dark');
+        if (themeLightBtn) themeLightBtn.addEventListener('click', () => switchGlobalTheme('light'));
+        if (themeDarkBtn) themeDarkBtn.addEventListener('click', () => switchGlobalTheme('dark'));
+        
         // Fullscreen event listener
-        document.getElementById('map-fullscreen').addEventListener('click', toggleFullscreen);
+        const fullscreenBtn = document.getElementById('map-fullscreen');
+        if (fullscreenBtn) fullscreenBtn.addEventListener('click', toggleFullscreen);
 
         // File input listener
         const fileInput = document.getElementById('timeline-file-input');
@@ -1282,14 +1526,24 @@ if (document.readyState === 'loading') {
         }
     });
 } else {
+    // Initialize global theme first
+    initGlobalTheme();
+    
+    // Initialize map
     initMap();
-    // Style switcher event listeners
-    document.getElementById('map-style-light').addEventListener('click', () => switchMapStyle('light'));
-    document.getElementById('map-style-dark').addEventListener('click', () => switchMapStyle('dark'));
-    // Year filter event listener
-    document.getElementById('map-year-filter').addEventListener('change', onYearFilterChange);
+
+    // Load offline country boundaries for reverse geocoding
+    loadCountryGeoJSON();
+    
+    // Global theme toggle event listeners
+    const themeLightBtn = document.getElementById('theme-light');
+    const themeDarkBtn = document.getElementById('theme-dark');
+    if (themeLightBtn) themeLightBtn.addEventListener('click', () => switchGlobalTheme('light'));
+    if (themeDarkBtn) themeDarkBtn.addEventListener('click', () => switchGlobalTheme('dark'));
+    
     // Fullscreen event listener
-    document.getElementById('map-fullscreen').addEventListener('click', toggleFullscreen);
+    const fullscreenBtn = document.getElementById('map-fullscreen');
+    if (fullscreenBtn) fullscreenBtn.addEventListener('click', toggleFullscreen);
 
     // File input listener
     const fileInput = document.getElementById('timeline-file-input');

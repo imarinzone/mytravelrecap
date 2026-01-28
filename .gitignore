@@ -140,7 +140,9 @@ vite.config.js.timestamp-*
 vite.config.ts.timestamp-*
 .vite/
 
+# Timeline data (ignore large raw files, but keep shared resources)
 data/*
+!data/countries.geojson
 .venv/*
 
 .DS_Store
