@@ -138,7 +138,7 @@ function initializeYearFilter(availableYears) {
         updateTimelineSelection();
         
         // Update title to reflect year
-        document.getElementById('header-title').textContent = `Here's your ${selectedYear} Timeline update`;
+        document.getElementById('header-title').textContent = `Your ${selectedYear} Recap`;
     }
 }
 
@@ -150,9 +150,9 @@ function selectTimelineYear(year) {
     
     // Update header title
     if (selectedYear) {
-        document.getElementById('header-title').textContent = `Here's your ${selectedYear} Timeline update`;
+        document.getElementById('header-title').textContent = `Your ${selectedYear} Recap`;
     } else {
-        document.getElementById('header-title').textContent = `Here's your Timeline update`;
+        document.getElementById('header-title').textContent = `Your Travel Recap`;
     }
     
     // Trigger the same filter logic as the old dropdown
@@ -387,6 +387,9 @@ function processAndRenderData(json) {
     // Calculate initial stats to get countries for the globe
     const initialStats = timelineUtils.calculateStats(allSegments);
 
+    // Hide background globe and show main globe with visited countries
+    hideBackgroundGlobe();
+    
     // Initialize or update Globe
     const globeContainer = document.getElementById('globe-container');
     if (globeContainer) {
@@ -396,18 +399,25 @@ function processAndRenderData(json) {
 
         // Fade in
         globeContainer.classList.remove('opacity-0');
-        globeContainer.classList.add('opacity-100');
+        globeContainer.classList.add('opacity-50');
     }
 
     // Initialize UI with data
     initializeYearFilter(years);
 
-    // Auto-select the latest year (first in the sorted list)
+    // Auto-select the latest year (last in ascending sorted list)
     if (years.length > 0) {
-        selectedYear = years[0];
+        const sortedYears = [...years].sort((a, b) => a - b);
+        selectedYear = sortedYears[sortedYears.length - 1].toString(); // Latest year
         localStorage.setItem('mapYear', selectedYear);
-        const yearSelect = document.getElementById('map-year-filter');
-        if (yearSelect) yearSelect.value = selectedYear;
+        updateTimelineSelection();
+        
+        // Update header title
+        document.getElementById('header-title').textContent = `Your ${selectedYear} Recap`;
+        
+        // Hide description after data loads
+        const headerDesc = document.getElementById('header-description');
+        if (headerDesc) headerDesc.classList.add('hidden');
     }
 
     renderDashboard();
@@ -445,9 +455,9 @@ function renderDashboard() {
             if (!s.startTime) return false;
             return new Date(s.startTime).getFullYear() === currentYear;
         });
-        document.getElementById('header-title').textContent = `Here's your ${currentYear} Timeline update`;
+        document.getElementById('header-title').textContent = `Your ${currentYear} Recap`;
     } else {
-        document.getElementById('header-title').textContent = `Here's your Timeline update`;
+        document.getElementById('header-title').textContent = `Your Travel Recap`;
     }
 
     // 3. Calculate Stats using Utility
@@ -467,7 +477,7 @@ function renderDashboard() {
     // 5. Render New Metrics
     renderEcoImpact(advancedStats.eco);
     renderTimeDistribution(advancedStats.time);
-    renderRecordBreakers(advancedStats.records);
+    renderRecordBreakers(advancedStats.records, statsSegments);
     
     // 6. Render Transport Breakdown and Top Places (new typography sections)
     renderTransportBreakdown(stats.transport);
@@ -556,21 +566,54 @@ function renderTimeDistribution(timeStats) {
     }
 }
 
-function renderRecordBreakers(records) {
+function renderRecordBreakers(records, segments) {
+    // Calculate records with dates from segments
+    let longestDriveRecord = { distance: 0, date: null };
+    let longestWalkRecord = { distance: 0, date: null };
+    
+    segments.forEach(segment => {
+        if (segment.activity && segment.activity.distanceMeters) {
+            const type = segment.activity.topCandidate?.type || 'UNKNOWN';
+            const distance = segment.activity.distanceMeters;
+            const date = segment.startTime ? new Date(segment.startTime) : null;
+            
+            if ((type === 'IN_PASSENGER_VEHICLE' || type === 'IN_VEHICLE') && distance > longestDriveRecord.distance) {
+                longestDriveRecord = { distance, date };
+            }
+            if ((type === 'WALKING' || type === 'RUNNING') && distance > longestWalkRecord.distance) {
+                longestWalkRecord = { distance, date };
+            }
+        }
+    });
+    
+    // Format date helper
+    const formatDate = (date) => {
+        if (!date) return '';
+        return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+    };
+    
     // Update Typography Story Section for Records
-    const driveKm = (records.longestDrive / 1000).toFixed(1);
-    const walkKm = (records.longestWalk / 1000).toFixed(1);
+    const driveKm = (longestDriveRecord.distance / 1000).toFixed(1);
+    const walkKm = (longestWalkRecord.distance / 1000).toFixed(1);
     
     // Longest drive story element
     const longestDriveEl = document.getElementById('stat-longest-drive');
     if (longestDriveEl) {
         longestDriveEl.textContent = `${driveKm} km`;
     }
+    const longestDriveDateEl = document.getElementById('stat-longest-drive-date');
+    if (longestDriveDateEl && longestDriveRecord.date) {
+        longestDriveDateEl.textContent = formatDate(longestDriveRecord.date);
+    }
     
     // Longest walk story element
     const longestWalkEl = document.getElementById('stat-longest-walk');
     if (longestWalkEl) {
         longestWalkEl.textContent = `${walkKm} km`;
+    }
+    const longestWalkDateEl = document.getElementById('stat-longest-walk-date');
+    if (longestWalkDateEl && longestWalkRecord.date) {
+        longestWalkDateEl.textContent = formatDate(longestWalkRecord.date);
     }
     
     // Keep backward compatibility with hidden container
@@ -580,24 +623,24 @@ function renderRecordBreakers(records) {
     }
 }
 
-// Transport icons and labels mapping
+// Transport labels mapping
 const transportConfig = {
-    'IN_PASSENGER_VEHICLE': { icon: '🚗', label: 'Driving' },
-    'IN_VEHICLE': { icon: '🚗', label: 'Driving' },
-    'IN_TAXI': { icon: '🚕', label: 'Taxi' },
-    'FLYING': { icon: '✈️', label: 'Flying' },
-    'IN_BUS': { icon: '🚌', label: 'Bus' },
-    'IN_TRAIN': { icon: '🚆', label: 'Train' },
-    'IN_SUBWAY': { icon: '🚇', label: 'Subway' },
-    'IN_TRAM': { icon: '🚊', label: 'Tram' },
-    'WALKING': { icon: '🚶', label: 'Walking' },
-    'RUNNING': { icon: '🏃', label: 'Running' },
-    'CYCLING': { icon: '🚴', label: 'Cycling' },
-    'MOTORCYCLING': { icon: '🏍️', label: 'Motorcycle' },
-    'IN_FERRY': { icon: '⛴️', label: 'Ferry' },
-    'SAILING': { icon: '⛵', label: 'Sailing' },
-    'SKIING': { icon: '⛷️', label: 'Skiing' },
-    'UNKNOWN': { icon: '📍', label: 'Other' }
+    'IN_PASSENGER_VEHICLE': { label: 'Driving' },
+    'IN_VEHICLE': { label: 'Driving' },
+    'IN_TAXI': { label: 'Taxi' },
+    'FLYING': { label: 'Flying' },
+    'IN_BUS': { label: 'Bus' },
+    'IN_TRAIN': { label: 'Train' },
+    'IN_SUBWAY': { label: 'Subway' },
+    'IN_TRAM': { label: 'Tram' },
+    'WALKING': { label: 'Walking' },
+    'RUNNING': { label: 'Running' },
+    'CYCLING': { label: 'Cycling' },
+    'MOTORCYCLING': { label: 'Motorcycle' },
+    'IN_FERRY': { label: 'Ferry' },
+    'SAILING': { label: 'Sailing' },
+    'SKIING': { label: 'Skiing' },
+    'UNKNOWN': { label: 'Other' }
 };
 
 function renderTransportBreakdown(transportStats) {
@@ -624,9 +667,8 @@ function renderTransportBreakdown(transportStats) {
         const card = document.createElement('div');
         card.className = 'transport-stat-card';
         card.innerHTML = `
-            <div class="transport-icon">${config.icon}</div>
-            <div class="transport-value">${distanceKm.toLocaleString()} km</div>
             <div class="transport-label">${config.label}</div>
+            <div class="transport-value">${distanceKm.toLocaleString()} km</div>
             <div class="transport-sublabel">${data.count} trips • ${durationHours}h</div>
         `;
         grid.appendChild(card);
@@ -1268,18 +1310,24 @@ window.shareCard = async function (elementId) {
 };
 
 function renderTravelSummary(stats) {
-    const worldPercentage = document.getElementById('world-percentage');
+    const worldTripsEl = document.getElementById('world-percentage');
+    const worldTripsLabel = document.getElementById('world-percentage-label');
     const description = document.getElementById('travel-description');
 
-    // Calculate coverage based on Earth's diameter and total distance traveled
-    const EARTH_DIAMETER_KM = 12742; // Approximate mean Earth diameter in km
+    // Calculate trips around the world based on Earth's circumference
+    const EARTH_CIRCUMFERENCE_KM = 40075; // Approximate Earth circumference in km
     const distanceKm = stats.totalDistanceMeters / 1000;
 
-    const coverage = distanceKm > 0
-        ? Math.min((distanceKm / EARTH_DIAMETER_KM) * 100, 100).toFixed(1)
-        : '0.0';
+    const tripsAroundWorld = distanceKm > 0
+        ? (distanceKm / EARTH_CIRCUMFERENCE_KM).toFixed(1)
+        : '0';
 
-    worldPercentage.textContent = `${coverage}%`;
+    // Display as "X.X" trips
+    worldTripsEl.textContent = tripsAroundWorld;
+    if (worldTripsLabel) {
+        const tripWord = parseFloat(tripsAroundWorld) === 1 ? 'Trip' : 'Trips';
+        worldTripsLabel.textContent = `${tripWord} Around Earth`;
+    }
 
     const countryCount = stats.countries.size;
     const uniquePlacesCount = Object.keys(stats.visits || {}).length;
@@ -1287,12 +1335,12 @@ function renderTravelSummary(stats) {
     if (countryCount > 0 || uniquePlacesCount > 0) {
         description.innerHTML = `
             You've explored <strong>${countryCount} countries</strong> and <strong>${uniquePlacesCount} unique places</strong> this period.<br>
-            That's about <strong>${coverage}%</strong> of Earth's diameter, over <strong>${Math.round(distanceKm).toLocaleString()} km</strong>.
+            That's <strong>${tripsAroundWorld} trips</strong> around the Earth, over <strong>${Math.round(distanceKm).toLocaleString()} km</strong>.
         `;
     } else {
         description.innerHTML = `
             You've travelled about <strong>${Math.round(distanceKm).toLocaleString()} km</strong> this period,<br>
-            which is roughly <strong>${coverage}%</strong> of Earth's diameter.
+            which is <strong>${tripsAroundWorld} trips</strong> around the Earth.
         `;
     }
 }
@@ -1591,6 +1639,29 @@ function setupFullscreenListeners() {
     document.addEventListener('msfullscreenchange', handleFullscreenChange);
 }
 
+// Background globe instance
+let bgGlobe = null;
+
+// Initialize background globe for landing page
+function initBackgroundGlobe() {
+    const bgGlobeContainer = document.getElementById('bg-globe-container');
+    if (bgGlobeContainer && typeof Globe !== 'undefined') {
+        bgGlobe = new Globe('bg-globe-container', []); // Empty visited countries for now
+    }
+}
+
+// Hide background globe when main content is shown
+function hideBackgroundGlobe() {
+    const bgGlobeContainer = document.getElementById('bg-globe-container');
+    if (bgGlobeContainer) {
+        bgGlobeContainer.style.opacity = '0';
+        // Remove after transition
+        setTimeout(() => {
+            bgGlobeContainer.style.display = 'none';
+        }, 1000);
+    }
+}
+
 // Initialize map when DOM is ready
 if (document.readyState === 'loading') {
     document.addEventListener('DOMContentLoaded', () => {
@@ -1599,6 +1670,9 @@ if (document.readyState === 'loading') {
         
         // Initialize map
         initMap();
+        
+        // Initialize background globe
+        initBackgroundGlobe();
 
         // Load offline country boundaries for reverse geocoding
         loadCountryGeoJSON();
@@ -1625,6 +1699,9 @@ if (document.readyState === 'loading') {
     
     // Initialize map
     initMap();
+    
+    // Initialize background globe
+    initBackgroundGlobe();
 
     // Load offline country boundaries for reverse geocoding
     loadCountryGeoJSON();

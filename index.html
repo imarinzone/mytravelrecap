@@ -994,6 +994,16 @@
         body.dark .leaflet-popup-tip {
             background: #1e293b;
         }
+        
+        /* Globe theme styles */
+        .globe-svg {
+            filter: drop-shadow(0 0 40px rgba(59, 130, 246, 0.15));
+            transition: filter 0.3s ease;
+        }
+        
+        body.dark .globe-svg {
+            filter: drop-shadow(0 0 50px rgba(56, 189, 248, 0.2));
+        }
 
         /* ===== ANIMATED STAT SCENE KEYFRAMES ===== */
 
@@ -1620,21 +1630,26 @@
         </div>
     </div>
 
-    <!-- Navigation/Header area -->
+    <!-- Background Globe (visible on landing page, same position as main globe) -->
+    <div id="bg-globe-container"
+        class="fixed top-20 left-0 w-[500px] h-[500px] z-0 opacity-30 pointer-events-none transition-opacity duration-1000">
+    </div>
+    
+    <!-- Main Globe (shown after file parsing with visited countries) -->
     <div id="globe-container"
-        class="fixed top-20 left-0 w-[500px] h-[500px] z-0 opacity-50 transition-opacity duration-1000">
+        class="fixed top-20 left-0 w-[500px] h-[500px] z-0 opacity-0 transition-opacity duration-1000">
     </div>
 
     <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-10 relative z-10">
 
         <!-- Header -->
         <header class="text-center mb-12">
-            <h1 class="text-5xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-blue-600 to-indigo-600 dark:from-blue-400 dark:to-indigo-400 mb-2"
+            <h1 class="text-5xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-blue-600 to-indigo-600 dark:from-blue-400 dark:to-indigo-400 mb-3"
                 id="header-title">
-                Here's your 2026 Timeline update
+                Your Travel Recap
             </h1>
-            <p class="text-lg text-gray-500 dark:text-gray-400 font-light" id="header-description">
-                A visual summary of your journey around the world.
+            <p class="text-lg text-gray-500 dark:text-gray-400 font-light max-w-2xl mx-auto" id="header-description">
+                Explore everywhere you've been — your distances traveled, places visited, time spent on the move, and the footprint you've left on the world.
             </p>
         </header>
 
@@ -1783,10 +1798,12 @@
                         <div>
                             <p class="text-sm text-gray-500 dark:text-gray-400 uppercase tracking-wider mb-2">Longest Drive</p>
                             <h3 class="text-4xl md:text-5xl font-black text-gray-900 dark:text-white" id="stat-longest-drive">0 km</h3>
+                            <p class="text-sm text-gray-400 dark:text-gray-500 mt-2" id="stat-longest-drive-date"></p>
                         </div>
                         <div>
                             <p class="text-sm text-gray-500 dark:text-gray-400 uppercase tracking-wider mb-2">Longest Walk</p>
                             <h3 class="text-4xl md:text-5xl font-black text-gray-900 dark:text-white" id="stat-longest-walk">0 km</h3>
+                            <p class="text-sm text-gray-400 dark:text-gray-500 mt-2" id="stat-longest-walk-date"></p>
                         </div>
                     </div>
                 </div>
@@ -1813,8 +1830,9 @@
                         onclick="shareCard('travel-summary-card')">
                         <div class="absolute inset-0 flex flex-col items-center justify-center">
                             <span class="text-4xl font-black text-gray-900 dark:text-white drop-shadow-sm"
-                                id="world-percentage">--%</span>
-                            <span class="text-xs font-bold text-gray-600 dark:text-gray-300 tracking-wider uppercase">World Covered</span>
+                                id="world-percentage">--</span>
+                            <span class="text-xs font-bold text-gray-600 dark:text-gray-300 tracking-wider uppercase"
+                                id="world-percentage-label">Trips Around Earth</span>
                         </div>
                     </div>
 
@@ -1866,7 +1884,7 @@
                 <span class="material-icons-round text-sm">restart_alt</span>
                 <span>Start again</span>
             </button>
-            <p>Built with ❤️ • Your data never leaves this browser.</p>
+            <p>Built in India with love • Your data never leaves this browser.</p>
         </footer>
 
     </div>
