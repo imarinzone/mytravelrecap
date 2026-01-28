@@ -803,6 +803,7 @@
             max-width: 100%;
             -ms-overflow-style: none;
             scrollbar-width: none;
+            position: relative;
         }
         
         .timeline-modern-container::-webkit-scrollbar {
@@ -812,6 +813,161 @@
         body.dark .timeline-modern-container {
             background: rgba(30, 41, 59, 0.8);
             border-color: rgba(51, 65, 85, 0.5);
+        }
+
+        /* Taskbar (Mac-inspired) */
+        #top-control-bar {
+            background: transparent;
+            border: none;
+            box-shadow: none;
+        }
+
+        .taskbar-shell {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            width: 100%;
+            padding: 10px 0;
+        }
+
+        .taskbar {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            padding: 8px 14px;
+            border-radius: 999px;
+            background: rgba(255, 255, 255, 0.35);
+            border: 1px solid rgba(255, 255, 255, 0.35);
+            box-shadow: 0 8px 24px rgba(15, 23, 42, 0.08), inset 0 1px 0 rgba(255, 255, 255, 0.4);
+            backdrop-filter: blur(22px) saturate(1.1);
+            -webkit-backdrop-filter: blur(22px) saturate(1.1);
+            max-width: 100%;
+        }
+
+        body.dark .taskbar {
+            background: rgba(15, 23, 42, 0.35);
+            border-color: rgba(148, 163, 184, 0.12);
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.25), inset 0 1px 0 rgba(255, 255, 255, 0.04);
+        }
+
+        .taskbar-section {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .taskbar-divider {
+            width: 1px;
+            height: 24px;
+            background: rgba(148, 163, 184, 0.35);
+        }
+
+        body.dark .taskbar-divider {
+            background: rgba(148, 163, 184, 0.2);
+        }
+
+        .taskbar-label {
+            font-size: 11px;
+            text-transform: uppercase;
+            letter-spacing: 0.12em;
+            color: #64748b;
+            font-weight: 600;
+        }
+
+        body.dark .taskbar-label {
+            color: #94a3b8;
+        }
+
+        /* Tighten controls inside taskbar */
+        .taskbar .timeline-modern-container {
+            background: transparent;
+            border: none;
+            box-shadow: none;
+            padding: 2px;
+        }
+
+        .taskbar .timeline-year-btn,
+        .taskbar .timeline-year-point,
+        .taskbar .timeline-all-years {
+            padding: 6px 12px;
+        }
+
+        .taskbar .theme-toggle {
+            background: rgba(226, 232, 240, 0.6);
+            border-radius: 999px;
+            padding: 2px;
+        }
+
+        body.dark .taskbar .theme-toggle {
+            background: rgba(30, 41, 59, 0.6);
+        }
+
+        /* Theme toggle switch */
+        .theme-switch {
+            position: relative;
+            display: flex;
+            align-items: center;
+            gap: 4px;
+            padding: 4px;
+            border-radius: 999px;
+            background: rgba(226, 232, 240, 0.6);
+            width: 84px;
+            height: 36px;
+        }
+
+        body.dark .theme-switch {
+            background: rgba(30, 41, 59, 0.6);
+        }
+
+        .theme-switch-btn {
+            position: relative;
+            z-index: 2;
+            width: 36px;
+            height: 28px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            border-radius: 999px;
+            color: #64748b;
+            transition: color 0.2s ease;
+        }
+
+        body.dark .theme-switch-btn {
+            color: #94a3b8;
+        }
+
+        .theme-switch-btn.active {
+            color: #f59e0b;
+        }
+
+        body.dark .theme-switch-btn.active {
+            color: #f8fafc;
+        }
+
+        .theme-switch-knob {
+            position: absolute;
+            top: 4px;
+            left: 4px;
+            width: 36px;
+            height: 28px;
+            border-radius: 999px;
+            background: rgba(255, 255, 255, 0.9);
+            box-shadow: 0 6px 16px rgba(15, 23, 42, 0.15);
+            transition: transform 0.25s ease, background 0.25s ease;
+            z-index: 1;
+        }
+
+        body.dark .theme-switch-knob {
+            background: rgba(30, 41, 59, 0.9);
+            box-shadow: 0 6px 16px rgba(0, 0, 0, 0.35);
+            transform: translateX(40px);
+        }
+
+        /* Summary globe styling */
+        #summary-globe-container svg {
+            width: 100%;
+            height: 100%;
+            opacity: 0.8;
         }
         
         /* Timeline year button styles (modern pill) */
@@ -845,13 +1001,13 @@
         
         .timeline-year-btn.active {
             color: white;
-            background: linear-gradient(135deg, #3b82f6 0%, #6366f1 100%);
-            box-shadow: 0 2px 8px rgba(59, 130, 246, 0.4);
+            background: transparent;
+            box-shadow: none;
         }
         
         body.dark .timeline-year-btn.active {
-            background: linear-gradient(135deg, #3b82f6 0%, #6366f1 100%);
-            box-shadow: 0 2px 12px rgba(59, 130, 246, 0.3);
+            background: transparent;
+            box-shadow: none;
         }
         
         /* Legacy classes for backward compatibility - style same as modern buttons */
@@ -884,8 +1040,32 @@
         .timeline-year-point.active,
         .timeline-all-years.active {
             color: white;
+            background: transparent;
+            box-shadow: none;
+        }
+
+        /* Timeline switch knob (like theme toggle) */
+        .timeline-switch-knob {
+            position: absolute;
+            top: 4px;
+            bottom: 4px;
+            left: 4px;
+            border-radius: 999px;
             background: linear-gradient(135deg, #3b82f6 0%, #6366f1 100%);
-            box-shadow: 0 2px 8px rgba(59, 130, 246, 0.4);
+            box-shadow: 0 4px 12px rgba(59, 130, 246, 0.35);
+            transition: transform 0.25s ease, width 0.25s ease;
+            z-index: 0;
+        }
+
+        body.dark .timeline-switch-knob {
+            box-shadow: 0 6px 14px rgba(59, 130, 246, 0.3);
+        }
+
+        .timeline-modern-container .timeline-year-btn,
+        .timeline-modern-container .timeline-year-point,
+        .timeline-modern-container .timeline-all-years {
+            position: relative;
+            z-index: 1;
         }
         
         /* Remove old label styling */
@@ -1406,6 +1586,11 @@
             background-clip: text;
         }
         
+        /* Globe to Map Reveal Animation */
+        #globe-map-reveal {
+            background: transparent;
+        }
+        
         /* Transport stat card */
         .transport-stat-card {
             background: rgba(255, 255, 255, 0.6);
@@ -1594,36 +1779,32 @@
         </svg>
     </div>
 
-    <!-- Top Control Bar -->
-    <div id="top-control-bar" class="sticky top-0 z-50 bg-white/80 dark:bg-gray-900/80 backdrop-blur-lg border-b border-gray-200/50 dark:border-gray-700/50 transition-colors duration-300">
-        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-3">
-            <div class="flex flex-col sm:flex-row items-center justify-between gap-4">
-                
-                <!-- Timeline Year Selector (Modern Centered) -->
-                <div id="timeline-selector-container" class="hidden flex-1 justify-center">
+    <!-- Top Control Bar (Taskbar Style) -->
+    <div id="top-control-bar" class="fixed bottom-4 left-0 right-0 z-50 transition-colors duration-300">
+        <div class="taskbar-shell">
+            <div class="taskbar">
+                <!-- Timeline Year Selector (Centered) -->
+                <div id="timeline-selector-container" class="hidden taskbar-section">
+                    <span class="taskbar-label hidden sm:inline">Timeline</span>
                     <div class="timeline-modern-wrapper">
                         <div id="timeline-years" class="timeline-modern-container">
                             <!-- Year buttons will be dynamically added here -->
                         </div>
                     </div>
                 </div>
-                
+
+                <span class="taskbar-divider hidden sm:inline"></span>
+
                 <!-- Theme Toggle -->
-                <div class="flex items-center gap-3">
-                    <span class="text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider hidden sm:block">Theme</span>
-                    <div class="flex items-center bg-gray-100 dark:bg-gray-800 p-1 rounded-xl transition-colors duration-300">
-                        <button id="theme-light" 
-                            class="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm font-medium transition-all bg-white dark:bg-transparent shadow-sm dark:shadow-none text-blue-600 dark:text-gray-400"
-                            title="Light Mode">
+                <div class="taskbar-section">
+                    <div class="theme-switch" id="theme-switch" role="tablist" aria-label="Theme toggle">
+                        <button id="theme-light" class="theme-switch-btn" title="Light Mode" aria-pressed="true">
                             <span class="material-icons-round text-base">light_mode</span>
-                            <span class="hidden sm:inline">Light</span>
                         </button>
-                        <button id="theme-dark" 
-                            class="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm font-medium transition-all text-gray-500 dark:bg-gray-700 dark:text-white dark:shadow-sm hover:text-gray-900 dark:hover:text-white"
-                            title="Dark Mode">
+                        <button id="theme-dark" class="theme-switch-btn" title="Dark Mode" aria-pressed="false">
                             <span class="material-icons-round text-base">dark_mode</span>
-                            <span class="hidden sm:inline">Dark</span>
                         </button>
+                        <span class="theme-switch-knob" aria-hidden="true"></span>
                     </div>
                 </div>
             </div>
@@ -1666,8 +1847,7 @@
                 </div>
                 <h2 class="text-2xl font-bold text-gray-900 dark:text-white mb-3">Load Your Data</h2>
                 <p class="text-sm text-gray-500 dark:text-gray-400 mb-6">
-                    Upload your <code class="bg-gray-100 dark:bg-gray-700 px-1 py-0.5 rounded">GoogleTimeline.json</code>. <br>Your data stays 100% private and is processed
-                    locally.
+                    Upload your <code class="bg-gray-100 dark:bg-gray-700 px-1 py-0.5 rounded">GoogleTimeline.json</code>. <br>Your data remains 100% private and processed on device.
                 </p>
 
                 <div class="relative group">
@@ -1680,30 +1860,35 @@
                 </div>
                 <div id="upload-status" class="mt-4 text-sm font-medium text-gray-500 dark:text-gray-400 min-h-[20px]"></div>
             </div>
+            <div class="mt-8 text-left glass rounded-3xl p-6 shadow-lg">
+                <h3 class="text-lg font-semibold text-gray-900 dark:text-white mb-4">Get your GoogleTimeline.json</h3>
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-6 text-sm text-gray-600 dark:text-gray-300">
+                    <div>
+                        <p class="font-semibold text-gray-800 dark:text-gray-200 mb-2">Android</p>
+                        <ol class="space-y-2">
+                            <li>Open Google Maps and tap your profile photo.</li>
+                            <li>Go to Timeline, then tap the three-dot menu.</li>
+                            <li>Select Settings and privacy.</li>
+                            <li>Tap Export Timeline data and confirm.</li>
+                            <li>Save the file, then upload the GoogleTimeline.json here.</li>
+                        </ol>
+                    </div>
+                    <div>
+                        <p class="font-semibold text-gray-800 dark:text-gray-200 mb-2">iOS</p>
+                        <ol class="space-y-2">
+                            <li>Open Google Maps and tap your profile photo.</li>
+                            <li>Open Timeline, then tap the three-dot menu.</li>
+                            <li>Choose Settings and privacy.</li>
+                            <li>Tap Export Timeline data and confirm.</li>
+                            <li>Save the file to Files, then upload GoogleTimeline.json here.</li>
+                        </ol>
+                    </div>
+                </div>
+            </div>
         </section>
 
         <!-- Main Dashboard (Hidden by default) -->
         <div id="dashboard-content" class="hidden pb-12">
-
-            <!-- Map Section (Compact) -->
-            <section class="glass dark:glass-dark rounded-3xl shadow-lg border border-white/50 dark:border-gray-700/50 overflow-hidden relative group transition-colors duration-300 mb-24">
-                <div class="p-4 border-b border-gray-100/50 dark:border-gray-700/50 flex justify-between items-center">
-                    <h2 class="text-lg font-semibold text-gray-700 dark:text-gray-300 flex items-center gap-2">
-                        <span class="material-icons-round text-blue-500 dark:text-blue-400 text-base">map</span> Your Journey Map
-                    </h2>
-                    <div class="flex items-center gap-2">
-                        <button id="map-fullscreen" class="p-1.5 text-gray-400 hover:text-blue-600 dark:hover:text-blue-400 transition-colors" title="Fullscreen">
-                            <span id="fullscreen-icon" class="material-icons-round text-lg">fullscreen</span>
-                        </button>
-                        <button onclick="shareCard('map-container-wrapper')" class="p-1.5 text-gray-400 hover:text-blue-600 dark:hover:text-blue-400 transition-colors" title="Share">
-                            <span class="material-icons-round text-lg">ios_share</span>
-                        </button>
-                    </div>
-                </div>
-                <div id="map-container-wrapper" class="relative bg-gray-100 dark:bg-gray-800 w-full h-[500px] transition-colors duration-300">
-                    <div id="map" class="w-full h-full"></div>
-                </div>
-            </section>
 
             <!-- ========== TYPOGRAPHY-FIRST STORYTELLING SECTIONS ========== -->
 
@@ -1828,6 +2013,7 @@
                 <div class="relative z-10 flex flex-col md:flex-row items-center gap-12">
                     <div class="relative group cursor-pointer w-48 h-48 flex items-center justify-center rounded-full bg-gradient-to-r from-blue-500/10 to-purple-500/10 dark:from-blue-500/20 dark:to-purple-500/20"
                         onclick="shareCard('travel-summary-card')">
+                        <div id="summary-globe-container" class="absolute inset-0 opacity-70 pointer-events-none"></div>
                         <div class="absolute inset-0 flex flex-col items-center justify-center">
                             <span class="text-4xl font-black text-gray-900 dark:text-white drop-shadow-sm"
                                 id="world-percentage">--</span>
@@ -1866,6 +2052,21 @@
                 </div>
             </section>
 
+            <!-- Globe to Map Reveal Section -->
+            <section id="globe-map-reveal" class="relative min-h-[120vh] mt-24">
+                <!-- Sticky container for the map reveal -->
+                <div class="sticky top-0 h-screen flex items-center justify-center overflow-hidden">
+                    <!-- Map Layer (fades in as globe fades out) -->
+                    <div id="reveal-map-wrapper" class="w-full max-w-4xl mx-4 opacity-0 scale-95 transition-all duration-300">
+                        <section class="glass dark:glass-dark rounded-3xl shadow-lg border border-white/50 dark:border-gray-700/50 overflow-hidden">
+                            <div id="map-container-wrapper" class="relative bg-gray-100 dark:bg-gray-800 w-full h-[500px] transition-colors duration-300">
+                                <div id="map" class="w-full h-full"></div>
+                            </div>
+                        </section>
+                    </div>
+                </div>
+            </section>
+
             <!-- Hidden containers for backward compatibility (JS still references these) -->
             <div id="statistics-grid" class="hidden"></div>
             <div id="travel-trends-grid" class="hidden"></div>
@@ -1884,7 +2085,7 @@
                 <span class="material-icons-round text-sm">restart_alt</span>
                 <span>Start again</span>
             </button>
-            <p>Built in India with love • Your data never leaves this browser.</p>
+            <p>Built in India with ❤️ love • Your data never leaves this browser • <a href="https://github.com/imarinzone" class="underline hover:text-gray-600 dark:hover:text-gray-300">https://github.com/imarinzone</a></p>
         </footer>
 
     </div>

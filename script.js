@@ -6,6 +6,8 @@ let selectedYear = null;
 let allLocations = []; // Store loaded locations for filtering
 let allSegments = []; // Store all timeline segments (visits and activities)
 let globe = null; // Globe instance
+let summaryGlobe = null;
+let isSummaryGlobeSyncing = false;
 
 // CartoDB Tile Layer URLs
 const tileLayers = {
@@ -99,6 +101,11 @@ function initializeYearFilter(availableYears) {
     if (!timelineContainer) return;
     
     timelineContainer.innerHTML = '';
+
+    // Add sliding knob for active year (like theme toggle)
+    const knob = document.createElement('span');
+    knob.className = 'timeline-switch-knob';
+    timelineContainer.appendChild(knob);
     
     // Sort years ascending for timeline display (oldest to newest left to right)
     availableYears.sort((a, b) => a - b);
@@ -174,6 +181,16 @@ function updateTimelineSelection() {
             btn.classList.remove('active');
         }
     });
+
+    // Move the sliding knob to the active button
+    const activeBtn = timelineContainer.querySelector('.timeline-year-btn.active');
+    const knob = timelineContainer.querySelector('.timeline-switch-knob');
+    if (knob && activeBtn) {
+        const left = activeBtn.offsetLeft;
+        const width = activeBtn.offsetWidth;
+        knob.style.width = `${width}px`;
+        knob.style.transform = `translateX(${left}px)`;
+    }
 }
 
 // ===== GLOBAL THEME SYSTEM =====
@@ -303,15 +320,15 @@ function updateThemeButtons() {
     if (!lightBtn || !darkBtn) return;
     
     if (currentTheme === 'light') {
-        lightBtn.classList.remove('dark:bg-transparent', 'dark:shadow-none', 'dark:text-gray-400');
-        lightBtn.classList.add('bg-white', 'shadow-sm', 'text-blue-600');
-        darkBtn.classList.remove('dark:bg-gray-700', 'dark:text-white', 'dark:shadow-sm');
-        darkBtn.classList.add('text-gray-500');
+        lightBtn.classList.add('active');
+        darkBtn.classList.remove('active');
+        lightBtn.setAttribute('aria-pressed', 'true');
+        darkBtn.setAttribute('aria-pressed', 'false');
     } else {
-        lightBtn.classList.remove('bg-white', 'shadow-sm', 'text-blue-600');
-        lightBtn.classList.add('bg-transparent', 'text-gray-400');
-        darkBtn.classList.remove('text-gray-500');
-        darkBtn.classList.add('bg-gray-700', 'text-white', 'shadow-sm');
+        lightBtn.classList.remove('active');
+        darkBtn.classList.add('active');
+        lightBtn.setAttribute('aria-pressed', 'false');
+        darkBtn.setAttribute('aria-pressed', 'true');
     }
 }
 
@@ -395,6 +412,10 @@ function processAndRenderData(json) {
     if (globeContainer) {
         globeContainer.innerHTML = ''; // Clear previous globe
         const visitedCountries = Array.from(initialStats.countries);
+        
+        // Store globally for reveal globe to use
+        window.visitedCountriesArray = visitedCountries;
+        
         globe = new Globe('globe-container', visitedCountries);
 
         // Fade in
@@ -469,6 +490,7 @@ function renderDashboard() {
     // 4. Update UI Sections
     renderStatistics(stats);
     renderTravelSummary(stats);
+    initSummaryGlobe();
     renderTravelTrends(stats.transport);
     renderVisitTrends(stats.visits);
     renderHighlights(stats.visits, statsSegments);
@@ -487,11 +509,12 @@ function renderDashboard() {
     const dashboard = document.getElementById('dashboard-content');
     if (dashboard) {
         dashboard.classList.remove('hidden');
-        // Initialize globe scroll animation
-        initGlobeScrollAnimation();
 
         // Initialize general scroll animations for stats
         initScrollAnimations();
+        
+        // Initialize globe-to-map reveal animation (replaces old globe scroll animation)
+        initGlobeMapReveal();
     }
 }
 
@@ -1345,6 +1368,29 @@ function renderTravelSummary(stats) {
     }
 }
 
+function initSummaryGlobe() {
+    const summaryContainer = document.getElementById('summary-globe-container');
+    if (!summaryContainer || typeof Globe === 'undefined') return;
+
+    if (!summaryGlobe) {
+        const visitedCountries = window.visitedCountriesArray || [];
+        summaryGlobe = new Globe('summary-globe-container', visitedCountries);
+        summaryContainer.dataset.docked = 'true';
+        summaryGlobe.stopRotation();
+    }
+
+    if (!isSummaryGlobeSyncing) {
+        isSummaryGlobeSyncing = true;
+        const sync = () => {
+            if (globe && summaryGlobe) {
+                summaryGlobe.setRotation(globe.getRotation());
+            }
+            requestAnimationFrame(sync);
+        };
+        requestAnimationFrame(sync);
+    }
+}
+
 function renderTravelTrends(transportStats) {
     const grid = document.getElementById('travel-trends-grid');
     grid.innerHTML = '';
@@ -1747,6 +1793,7 @@ function initGlobeScrollAnimation() {
     window.addEventListener('scroll', () => {
         const targetRect = targetImg.getBoundingClientRect();
         const viewportHeight = window.innerHeight;
+        const viewportWidth = window.innerWidth;
         const scrollTop = window.pageYOffset || document.documentElement.scrollTop;
 
         // Calculate the absolute position of the target image in the document
@@ -1843,4 +1890,166 @@ function initScrollAnimations() {
             }
         });
     }, 100);
+}
+
+/**
+ * Initializes the globe scroll animation
+ * Globe expands as user scrolls, then moves to center and fades out at the reveal section
+ */
+function initGlobeMapReveal() {
+    const revealSection = document.getElementById('globe-map-reveal');
+    const revealMapWrapper = document.getElementById('reveal-map-wrapper');
+    const globeContainer = document.getElementById('globe-container');
+    const dashboardContent = document.getElementById('dashboard-content');
+    
+    if (!revealSection || !revealMapWrapper || !globeContainer) return;
+    
+    // Original globe position values
+    const originalTop = 80; // 5rem = 80px
+    const originalLeft = 0;
+    const originalSize = 500;
+    const maxExpandedSize = 700; // Max size before centering
+    const centeredSize = 700; // Size when centered
+    const originalOpacity = 0.5;
+    
+    // Remove any existing transitions for smooth scroll-linked animation
+    globeContainer.style.transition = 'none';
+    
+    function updateRevealAnimation() {
+        const viewportHeight = window.innerHeight;
+        const viewportWidth = window.innerWidth;
+        const scrollTop = window.pageYOffset || document.documentElement.scrollTop;
+        
+        // Get the reveal section position
+        const revealRect = revealSection.getBoundingClientRect();
+        const revealSectionHeight = revealSection.offsetHeight;
+        
+        // Calculate total scrollable height before reveal section
+        const revealSectionTop = revealRect.top + scrollTop;
+        const scrollableBeforeReveal = revealSectionTop - viewportHeight;
+        
+        // Calculate expansion progress (0 to 1) based on scroll through page content
+        // Globe expands from originalSize to maxExpandedSize as user scrolls through content
+        let expansionProgress = 0;
+        if (scrollableBeforeReveal > 0) {
+            expansionProgress = Math.min(1, Math.max(0, scrollTop / scrollableBeforeReveal));
+        }
+        
+        // Calculate reveal progress (when user reaches the reveal section)
+        const triggerPoint = viewportHeight * 0.7;
+        const scrollRange = revealSectionHeight * 0.6;
+        
+        let revealProgress = 0;
+        if (revealRect.top < triggerPoint) {
+            revealProgress = Math.min(1, Math.max(0, (triggerPoint - revealRect.top) / scrollRange));
+        }
+        
+        // Center of screen position
+        const origCenterX = originalLeft + originalSize / 2;
+        const origCenterY = originalTop + originalSize / 2;
+        
+        // Size that covers the whole screen (slightly oversized to fill edges)
+        const fullScreenSize = Math.max(viewportWidth, viewportHeight) * 1.15;
+
+        if (revealProgress <= 0) {
+            // Not in reveal section yet - globe expands in place as user scrolls
+            const expandedSize = originalSize + ((maxExpandedSize - originalSize) * expansionProgress);
+            
+            // Keep globe anchored at original position (top-left stays fixed)
+            globeContainer.style.position = 'fixed';
+            globeContainer.style.top = `${originalTop}px`;
+            globeContainer.style.left = `${originalLeft}px`;
+            globeContainer.style.width = `${expandedSize}px`;
+            globeContainer.style.height = `${expandedSize}px`;
+            globeContainer.style.opacity = originalOpacity;
+            globeContainer.style.zIndex = '0';
+            
+            revealMapWrapper.style.opacity = '0';
+            revealMapWrapper.style.transform = 'scale(0.9)';
+        } else if (revealProgress < 0.5) {
+            // Globe moves from expanded position to center
+            const moveProgress = revealProgress / 0.5; // 0 to 1
+            const eased = easeOutCubic(moveProgress);
+            
+            // Start from current expanded size and position
+            const startSize = maxExpandedSize;
+            const startCenterX = originalLeft + startSize / 2;
+            const startCenterY = originalTop + startSize / 2;
+            
+            // Interpolate to center
+            const currentCenterX = startCenterX + ((window.innerWidth / 2) - startCenterX) * eased;
+            const currentCenterY = startCenterY + ((viewportHeight / 2) - startCenterY) * eased;
+            
+            // Convert center to top-left position
+            const currentLeft = currentCenterX - (centeredSize / 2);
+            const currentTop = currentCenterY - (centeredSize / 2);
+            
+            // Opacity increases as it moves to center
+            const currentOpacity = originalOpacity + (1 - originalOpacity) * eased;
+            
+            // Keep globe behind content; never bring to foreground
+            const zIndex = '0';
+            
+            globeContainer.style.position = 'fixed';
+            globeContainer.style.left = `${currentLeft}px`;
+            globeContainer.style.top = `${currentTop}px`;
+            globeContainer.style.width = `${centeredSize}px`;
+            globeContainer.style.height = `${centeredSize}px`;
+            globeContainer.style.opacity = currentOpacity;
+            globeContainer.style.zIndex = zIndex;
+            
+            revealMapWrapper.style.opacity = '0';
+            revealMapWrapper.style.transform = 'scale(0.9)';
+        } else {
+            // Globe is now centered - expand to full screen and fade out
+            const fadeProgress = (revealProgress - 0.5) / 0.5; // 0 to 1
+            const eased = easeOutCubic(fadeProgress);
+            
+            // Expand from centered size to full-screen size while staying centered
+            const currentSize = centeredSize + ((fullScreenSize - centeredSize) * eased);
+            const currentLeft = (viewportWidth - currentSize) / 2;
+            const currentTop = (viewportHeight - currentSize) / 2;
+            
+            globeContainer.style.position = 'fixed';
+            globeContainer.style.left = `${currentLeft}px`;
+            globeContainer.style.top = `${currentTop}px`;
+            globeContainer.style.width = `${currentSize}px`;
+            globeContainer.style.height = `${currentSize}px`;
+            globeContainer.style.opacity = 1 - eased; // Fade from 1 to 0
+            globeContainer.style.zIndex = '0';
+            
+            revealMapWrapper.style.opacity = eased;
+            revealMapWrapper.style.transform = `scale(${0.9 + 0.1 * eased})`;
+            
+            // Invalidate map size once visible (Leaflet needs this)
+            if (map && eased > 0.5 && !revealMapWrapper.dataset.mapInvalidated) {
+                setTimeout(() => {
+                    map.invalidateSize();
+                    revealMapWrapper.dataset.mapInvalidated = 'true';
+                }, 100);
+            }
+        }
+    }
+    
+    // Easing function for smoother animation
+    function easeOutCubic(t) {
+        return 1 - Math.pow(1 - t, 3);
+    }
+    
+    // Scroll handler using requestAnimationFrame for smooth updates
+    let ticking = false;
+    function onScroll() {
+        if (!ticking) {
+            requestAnimationFrame(() => {
+                updateRevealAnimation();
+                ticking = false;
+            });
+            ticking = true;
+        }
+    }
+    
+    window.addEventListener('scroll', onScroll, { passive: true });
+    
+    // Initial update
+    updateRevealAnimation();
 }

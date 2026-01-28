@@ -169,6 +169,25 @@ class Globe {
         });
     }
 
+    stopRotation() {
+        if (this.rotationTimer) {
+            this.rotationTimer.stop();
+            this.rotationTimer = null;
+        }
+    }
+
+    getRotation() {
+        if (!this.projection) return [0, 0];
+        return this.projection.rotate();
+    }
+
+    setRotation(rotation) {
+        if (!this.projection || !this.countries) return;
+        this.projection.rotate(rotation);
+        this.countries.attr("d", this.path);
+        this.updateContainerTransform();
+    }
+
     setupDrag() {
         const sensitivity = this.sensitivity;
         const globe = this;
