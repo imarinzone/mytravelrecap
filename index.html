@@ -980,11 +980,12 @@
             opacity: 0.8;
         }
 
-        /* All-time lifetime stats text (now inline above globe) */
+        /* All-time lifetime stats text (now inline above globe) - aligned with travel-summary-card */
         .all-time-foreground-text {
-            max-width: 36rem;
+            max-width: 56rem;
             margin: 4rem auto 0;
             padding: 0 1rem;
+            text-align: left;
         }
         
         /* Timeline year button styles (modern pill) */
@@ -1818,7 +1819,7 @@
     </div>
 
     <!-- Top Control Bar (Taskbar Style) -->
-    <div id="top-control-bar" class="fixed bottom-4 left-0 right-0 z-[300] transition-colors duration-300">
+    <div id="top-control-bar" class="fixed bottom-8 left-0 right-0 z-[300] transition-colors duration-300">
         <div class="taskbar-shell">
             <div class="taskbar">
                 <!-- Move to top -->
@@ -1852,7 +1853,7 @@
                     <button id="taskbar-share"
                         class="glow-blue-btn hidden inline-flex items-center justify-center px-3 py-2 rounded-full shadow-sm border transition-colors"
                         aria-label="Share">
-                        <span class="material-icons-round text-sm">ios_share</span>
+                        <span class="material-icons-round text-sm">share</span>
                     </button>
                 </div>
 
@@ -1869,6 +1870,24 @@
 
             </div>
         </div>
+    </div>
+
+    <!-- Persistent footer below taskbar -->
+    <div class="fixed bottom-0 left-0 right-0 z-[290] pointer-events-none">
+        <p class="text-center text-gray-400 dark:text-gray-500 text-xs pb-1 flex items-center justify-center gap-1 flex-wrap">
+            <span class="pointer-events-auto">Built in India with ❤️ by
+                <a href="https://github.com/imarinzone"
+                    class="underline hover:text-gray-600 dark:hover:text-gray-300">@imarinzone</a>
+            </span>
+            <span class="pointer-events-auto text-gray-400 dark:text-gray-500">·</span>
+            <span class="pointer-events-auto">
+                <a href="https://buymeacoffee.com/imarinzone" target="_blank" rel="noopener noreferrer"
+                    class="inline-flex items-center text-gray-400 dark:text-gray-500 hover:text-amber-500 dark:hover:text-amber-400 transition-colors"
+                    title="Buy me a coffee">
+                    <span class="material-icons-round text-base" aria-hidden="true">local_cafe</span>
+                </a>
+            </span>
+        </p>
     </div>
 
     <!-- Top Year Timeline Bar (hidden until data is processed) -->
@@ -2036,7 +2055,7 @@
                                 0
                             </h2>
                             <p class="text-lg text-indigo-600/70 dark:text-indigo-400/70 font-medium" id="stat-time-stationary-unit">days</p>
-                            <p class="text-base text-gray-500 dark:text-gray-400 mt-1">at places</p>
+                            <p class="text-base text-gray-500 dark:text-gray-400 mt-1">resting</p>
                         </div>
                     </div>
                 </div>
@@ -2097,15 +2116,15 @@
             <!-- Travel Summary (Text stats) -->
             <section class="my-24 opacity-0 scroll-trigger" id="travel-summary-card">
                 <div class="max-w-4xl mx-auto px-4 text-left">
-                    <p class="text-xs uppercase tracking-widest text-gray-500 dark:text-gray-400 mb-2">Travel Summary</p>
-                    <div class="space-y-4 text-sm text-gray-600 dark:text-gray-300">
+                    <h3 class="text-2xl font-bold mb-6 text-gray-900 dark:text-white">Travel Summary</h3>
+                    <div class="space-y-3 text-sm text-gray-600 dark:text-gray-300">
                         <div class="flex items-baseline gap-2">
                             <span id="world-percentage"
                                 class="text-lg font-semibold text-gray-900 dark:text-white">0.0</span>
                             <span id="world-percentage-label"
                                 class="uppercase tracking-wide text-xs text-gray-500 dark:text-gray-400">Trips Around Earth</span>
                         </div>
-                        <p class="text-base text-gray-600 dark:text-gray-300 leading-relaxed" id="travel-description">
+                        <p class="text-sm text-gray-500 dark:text-gray-400 leading-relaxed mt-1" id="travel-description">
                             Analysis pending...
                         </p>
                     </div>
@@ -2126,7 +2145,6 @@
 
             <!-- All-time stats (text above globe) -->
             <div id="all-time-foreground-text" class="all-time-foreground-text text-gray-900 dark:text-white relative z-20">
-                <p class="text-xs uppercase tracking-widest text-gray-500 dark:text-gray-400 mb-2">All-time</p>
                 <h3 class="text-2xl font-bold mb-6">Lifetime Stats</h3>
                 <div class="space-y-3 text-sm text-gray-600 dark:text-gray-300">
                     <div class="flex items-baseline gap-2">
@@ -2181,10 +2199,6 @@
 
         </div>
 
-        <footer class="mt-20 text-center text-gray-400 dark:text-gray-500 text-sm pb-10 space-y-4 relative z-20">
-            <p>Built in India with ❤️ by <a href="https://github.com/imarinzone" class="underline hover:text-gray-600 dark:hover:text-gray-300">@imarinzone</a></p>
-        </footer>
-
     </div>
 
     <!-- Share Dialog -->
@@ -2208,7 +2222,7 @@
                         Overall details
                     </button>
                     <button id="share-year"
-                        class="w-full rounded-xl px-4 py-3 bg-white/90 text-gray-800 font-semibold hover:bg-white transition-colors border border-white/60">
+                        class="w-full rounded-xl px-4 py-3 bg-white/90 text-[#166fe3] font-semibold hover:bg-white transition-colors border border-white/60 dark:bg-gray-600 dark:text-[#166fe3] dark:hover:bg-gray-500 dark:border-gray-500">
                         Current year details
                     </button>
                 </div>

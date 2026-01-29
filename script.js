@@ -13,6 +13,8 @@ let mapYears = [];
 let isDataLoaded = false;
 let lastYearStats = null;
 let lastAllTimeStats = null;
+let lastAdvancedStats = null;
+let lastAllTimeAdvancedStats = null;
 
 // CartoDB Tile Layer URLs
 const tileLayers = {
@@ -615,9 +617,12 @@ function renderDashboard() {
 
     const allTimeStats = timelineUtils.calculateStats(allSegments);
     const advancedStats = timelineUtils.calculateAdvancedStats(statsSegments);
+    const allTimeAdvancedStats = timelineUtils.calculateAdvancedStats(allSegments);
 
     lastYearStats = stats;
     lastAllTimeStats = allTimeStats;
+    lastAdvancedStats = advancedStats;
+    lastAllTimeAdvancedStats = allTimeAdvancedStats;
 
     // 4. Update UI Sections
     renderStatistics(stats);
@@ -858,6 +863,7 @@ function renderTopPlacesSection(visitStats) {
         const hasName = place.name && place.name !== "Unknown Place";
         const displayName = hasName ? place.name : formatLatLng(place.latLng);
         const displayTitle = hasName ? place.name : place.latLng;
+        const osmUrl = getOpenStreetMapUrl(place.latLng);
         
         card.innerHTML = `
             <div class="flex-1 min-w-0">
@@ -866,6 +872,9 @@ function renderTopPlacesSection(visitStats) {
                     <span class="place-name ${!hasName ? 'text-gray-500 dark:text-gray-400 font-mono text-sm' : ''}" title="${displayTitle}">${displayName}</span>
                 </div>
                 ${place.country ? `<p class="text-xs text-gray-400 dark:text-gray-500 ml-6 mt-0.5">${place.country}</p>` : ''}
+                ${osmUrl ? `<a href="${osmUrl}" target="_blank" rel="noopener noreferrer" class="text-xs text-blue-600 dark:text-blue-400 ml-6 mt-1 inline-flex items-center gap-1 hover:underline">
+                    <span>Open location</span>
+                </a>` : ''}
             </div>
             <div class="text-right flex-shrink-0">
                 <div class="place-count">${place.count}</div>
@@ -886,6 +895,18 @@ function formatLatLng(latLngStr) {
     const lng = parseFloat(parts[1].trim());
     if (isNaN(lat) || isNaN(lng)) return latLngStr;
     return `${lat.toFixed(4)}, ${lng.toFixed(4)}`;
+}
+
+// Helper to build an OpenStreetMap URL for a given lat/lng string
+function getOpenStreetMapUrl(latLngStr) {
+    if (!latLngStr) return '';
+    const parts = latLngStr.replace(/°/g, '').split(',');
+    if (parts.length !== 2) return '';
+    const lat = parseFloat(parts[0].trim());
+    const lng = parseFloat(parts[1].trim());
+    if (isNaN(lat) || isNaN(lng)) return '';
+    const zoom = 14;
+    return `https://www.openstreetmap.org/?mlat=${lat}&mlon=${lng}#map=${zoom}/${lat}/${lng}`;
 }
 
 function renderStatistics(stats) {
@@ -1408,47 +1429,139 @@ function closeShareDialog() {
 function buildShareDetails(mode) {
     const useOverall = mode === 'overall';
     const stats = useOverall ? lastAllTimeStats : lastYearStats;
+    const advanced = useOverall ? lastAllTimeAdvancedStats : lastAdvancedStats;
     if (!stats) return null;
 
     const distanceKm = Math.round(stats.totalDistanceMeters / 1000).toLocaleString();
-    const visits = stats.totalVisits.toLocaleString();
     const countries = stats.countries.size.toLocaleString();
-    const yearLabel = selectedYear ? selectedYear : 'All Years';
-    const title = useOverall ? 'Travel Recap — Overall' : `Travel Recap — ${yearLabel}`;
+    const uniquePlaces = Object.keys(stats.visits || {}).length.toLocaleString();
+    const subtitle = useOverall ? 'Lifetime' : (selectedYear ? String(selectedYear) : 'All Years');
 
-    return {
-        title,
-        lines: [
-            `Distance: ${distanceKm} km`,
-            `Visits: ${visits}`,
-            `Countries: ${countries}`
-        ]
-    };
+    const statRows = [
+        { label: 'Distance', value: `${distanceKm} km` },
+        { label: 'Countries', value: countries },
+        { label: 'Unique places', value: uniquePlaces }
+    ];
+
+    if (advanced && advanced.records) {
+        const driveKm = (advanced.records.longestDrive / 1000).toFixed(1);
+        const walkKm = (advanced.records.longestWalk / 1000).toFixed(1);
+        if (advanced.records.longestDrive > 0) statRows.push({ label: 'Longest drive', value: `${driveKm} km` });
+        if (advanced.records.longestWalk > 0) statRows.push({ label: 'Longest walk', value: `${walkKm} km` });
+    }
+
+    if (advanced && advanced.eco) {
+        const distanceByType = advanced.eco.distanceByType || {};
+        const nonVehicleKm = (distanceByType.WALKING || 0) + (distanceByType.RUNNING || 0) + (distanceByType.CYCLING || 0);
+        const savedKg = Math.round((nonVehicleKm * 150) / 1000);
+        if (savedKg > 0) {
+            statRows.push({ label: 'CO₂ reduced', value: `${savedKg.toLocaleString()} kg` });
+        }
+    }
+
+    return { title: 'My Travel Recap', subtitle, statRows };
 }
 
-function drawShareOverlay(canvas, title, lines, pixelRatio) {
+function drawShareOverlay(canvas, details, pixelRatio, isDark) {
     const ctx = canvas.getContext('2d');
     if (!ctx) return;
 
-    const padding = 20 * pixelRatio;
-    const titleSize = 20 * pixelRatio;
-    const lineSize = 16 * pixelRatio;
-    const lineHeight = 22 * pixelRatio;
-    const titleHeight = titleSize + 6 * pixelRatio;
-    const boxHeight = padding * 2 + titleHeight + (lines.length * lineHeight);
+    const { title, subtitle, statRows } = details;
+    const w = canvas.width;
+    const h = canvas.height;
+    const r = Math.max(1, Math.min(pixelRatio, 3));
+    const pad = 56;
+    const overlayEnd = w * 0.52;
+    const titleSize = 52 * r;
+    const subtitleSize = 26 * r;
+    const statLabelSize = 22 * r;
+    const statValueSize = 36 * r;
+    const statRowGap = 28 * r;
+    const footerSize = 20 * r;
+    const cardPad = 24;
+    const cardR = 20;
 
-    ctx.fillStyle = 'rgba(15, 23, 42, 0.7)';
-    ctx.fillRect(0, 0, canvas.width, boxHeight);
+    const textPrimary = isDark ? '#ffffff' : '#0f172a';
+    const textMuted = isDark ? 'rgba(255, 255, 255, 0.75)' : 'rgba(15, 23, 42, 0.7)';
+    const accent = isDark ? '#38bdf8' : '#0ea5e9';
+    const cardBg = isDark ? 'rgba(15, 23, 42, 0.82)' : 'rgba(255, 255, 255, 0.92)';
 
-    ctx.fillStyle = '#ffffff';
-    ctx.font = `600 ${titleSize}px Outfit, sans-serif`;
-    ctx.fillText(title, padding, padding + titleSize);
+    // Gradient overlay for readability — dark theme only; light theme has no overlay to avoid a visible band in the center
+    if (isDark) {
+        const gradient = ctx.createLinearGradient(0, 0, overlayEnd, 0);
+        gradient.addColorStop(0, 'rgba(15, 23, 42, 0.94)');
+        gradient.addColorStop(0.65, 'rgba(15, 23, 42, 0.5)');
+        gradient.addColorStop(1, 'transparent');
+        ctx.fillStyle = gradient;
+        ctx.fillRect(0, 0, w, h);
+    }
 
-    ctx.font = `400 ${lineSize}px Outfit, sans-serif`;
-    lines.forEach((line, index) => {
-        const y = padding + titleHeight + (index + 1) * lineHeight;
-        ctx.fillText(line, padding, y);
+    // Accent bar next to title
+    const barW = 5;
+    const barH = titleSize * 0.72;
+    ctx.fillStyle = accent;
+    ctx.beginPath();
+    ctx.roundRect(pad, pad, barW, barH, 3);
+    ctx.fill();
+
+    // Title
+    ctx.fillStyle = textPrimary;
+    ctx.font = `800 ${titleSize}px system-ui, -apple-system, sans-serif`;
+    ctx.textBaseline = 'top';
+    ctx.fillText(title, pad + barW + 16, pad);
+
+    // Subtitle pill
+    const subY = pad + titleSize + 14;
+    ctx.font = `600 ${subtitleSize}px system-ui, -apple-system, sans-serif`;
+    const subW = ctx.measureText(subtitle).width + 24;
+    const pillH = subtitleSize + 16;
+    ctx.fillStyle = isDark ? 'rgba(255, 255, 255, 0.12)' : 'rgba(14, 165, 233, 0.15)';
+    ctx.beginPath();
+    ctx.roundRect(pad + barW + 16, subY, subW, pillH, pillH / 2);
+    ctx.fill();
+    ctx.fillStyle = accent;
+    ctx.fillText(subtitle, pad + barW + 28, subY + 8);
+
+    // Stats card (rounded rect)
+    const cardTop = subY + pillH + 32;
+    const cardW = Math.max(200, overlayEnd - pad * 2);
+    const rowHeight = statLabelSize + 8 + statValueSize + statRowGap;
+    const cardH = statRows.length * rowHeight - statRowGap + cardPad * 2;
+    ctx.fillStyle = cardBg;
+    if (isDark) {
+        ctx.shadowColor = 'rgba(0, 0, 0, 0.4)';
+        ctx.shadowBlur = 24;
+        ctx.shadowOffsetY = 8;
+    } else {
+        ctx.shadowColor = 'rgba(0, 0, 0, 0.08)';
+        ctx.shadowBlur = 24;
+        ctx.shadowOffsetY = 6;
+    }
+    ctx.beginPath();
+    ctx.roundRect(pad, cardTop, cardW, cardH, cardR);
+    ctx.fill();
+    ctx.shadowColor = 'transparent';
+    ctx.shadowBlur = 0;
+    ctx.shadowOffsetY = 0;
+
+    // Stat rows
+    let rowY = cardTop + cardPad;
+    ctx.textBaseline = 'top';
+    statRows.forEach((row) => {
+        ctx.font = `500 ${statLabelSize}px system-ui, -apple-system, sans-serif`;
+        ctx.fillStyle = textMuted;
+        ctx.fillText(row.label, pad + cardPad, rowY);
+        ctx.font = `700 ${statValueSize}px system-ui, -apple-system, sans-serif`;
+        ctx.fillStyle = accent;
+        ctx.fillText(row.value, pad + cardPad, rowY + statLabelSize + 8);
+        rowY += statLabelSize + 8 + statValueSize + statRowGap;
     });
+
+    // Footer
+    const footerY = h - pad - 40;
+    ctx.fillStyle = textMuted;
+    ctx.font = `500 ${footerSize}px system-ui, -apple-system, sans-serif`;
+    ctx.fillText('generate yours @ www.mytravelrecap.com', pad, footerY);
 }
 
 async function shareCurrentView(mode) {
@@ -1479,7 +1592,8 @@ async function shareCurrentView(mode) {
         }
 
         const pixelRatio = 2;
-        const themeBackground = document.body.classList.contains('dark') ? '#0f172a' : '#f5f7fa';
+        const isDark = document.body.classList.contains('dark');
+        const themeBackground = isDark ? '#0f172a' : '#f5f7fa';
 
         const canvas = await htmlToImage.toCanvas(node, {
             backgroundColor: themeBackground,
@@ -1520,20 +1634,28 @@ async function shareCurrentView(mode) {
         let offsetX = 0;
         let offsetY = 0;
 
+        // Scale to cover the story frame while keeping the globe prominent,
+        // then bias slightly so the globe sits closer to the visual center.
         if (sourceAspect > targetAspect) {
+            // Source is wider than target — match height and crop sides.
             drawHeight = STORY_HEIGHT;
             drawWidth = canvas.width * (STORY_HEIGHT / canvas.height);
             offsetX = (STORY_WIDTH - drawWidth) / 2;
         } else {
+            // Source is taller than target — match width and crop top/bottom.
             drawWidth = STORY_WIDTH;
             drawHeight = canvas.height * (STORY_WIDTH / canvas.width);
             offsetY = (STORY_HEIGHT - drawHeight) / 2;
         }
 
+        // Shift the globe toward the center so more of it is visible and it sits in the middle of the share image.
+        const horizontalBias = STORY_WIDTH * 0.14; // ~14% — center the globe and show more of it
+        offsetX += horizontalBias;
+
         storyCtx.drawImage(canvas, offsetX, offsetY, drawWidth, drawHeight);
 
         const overlayScale = (STORY_WIDTH / canvas.width) * pixelRatio;
-        drawShareOverlay(storyCanvas, details.title, details.lines, overlayScale);
+        drawShareOverlay(storyCanvas, details, overlayScale, isDark);
 
         const blob = await new Promise((resolve) => storyCanvas.toBlob(resolve, 'image/png'));
         if (!blob) {
