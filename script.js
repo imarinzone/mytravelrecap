@@ -1,6 +1,7 @@
 // Leaflet Map Configuration
 let map = null;
 let markers = null;
+let heatLayer = null; // Used when location count exceeds HEATMAP_THRESHOLD (fast canvas render)
 let currentStyle = 'light';
 let selectedYear = null;
 let allLocations = []; // Store loaded locations for filtering
@@ -57,10 +58,10 @@ async function loadCountryGeoJSON() {
 
 // Use clustering when location count exceeds this (avoids 5k–50k DOM nodes)
 const MARKER_CLUSTER_THRESHOLD = 500;
+// Use heatmap (single canvas) when count exceeds this – faster than many markers/clusters
+const HEATMAP_THRESHOLD = 500;
 // Batch size for adding markers per frame (keeps UI responsive)
 const MARKER_BATCH_SIZE = 200;
-// Optional cap for visible markers; show "Showing first N" when capped
-const MAX_VISIBLE_MARKERS = 2000;
 
 // Initialize map
 function initMap() {
@@ -1517,7 +1518,7 @@ function buildShareDetails(mode) {
 }
 
 function drawShareOverlay(canvas, details, pixelRatio, isDark) {
-    const ctx = canvas.getContext('2d');
+    const ctx = canvas.getContext('2d', { willReadFrequently: true });
     if (!ctx) return;
 
     const { title, subtitle, statRows } = details;
@@ -1646,31 +1647,48 @@ async function shareCurrentView(mode) {
         const isDark = document.body.classList.contains('dark');
         const themeBackground = isDark ? '#0f172a' : '#f5f7fa';
 
-        const canvas = await htmlToImage.toCanvas(node, {
-            backgroundColor: themeBackground,
-            pixelRatio,
-            filter: (domNode) => {
-                if (domNode.id === 'share-dialog') return false;
-                if (domNode.tagName === 'IMG') {
-                    const src = domNode.getAttribute('src') || '';
-                    if (src.startsWith('file://')) {
-                        return false;
-                    }
+        // Temporarily detach cross-origin stylesheet links so html-to-image doesn't hit
+        // SecurityError when reading cssRules (cross-origin stylesheets block access).
+        const origin = window.location.origin;
+        const externalStyles = [];
+        Array.from(document.querySelectorAll('link[rel="stylesheet"]')).forEach((link) => {
+            try {
+                const href = link.getAttribute('href') || '';
+                if (!href) return;
+                const url = new URL(href, document.baseURI);
+                if (url.origin !== origin) {
+                    externalStyles.push(link);
+                    link.parentNode && link.parentNode.removeChild(link);
                 }
-                return true;
-            },
-            style: {
-                margin: '0',
-                transform: 'none'
-            }
+            } catch (_) { /* ignore */ }
         });
+
+        try {
+            const canvas = await htmlToImage.toCanvas(node, {
+                backgroundColor: themeBackground,
+                pixelRatio,
+                filter: (domNode) => {
+                    if (domNode.id === 'share-dialog') return false;
+                    if (domNode.tagName === 'IMG') {
+                        const src = domNode.getAttribute('src') || '';
+                        if (src.startsWith('file://')) {
+                            return false;
+                        }
+                    }
+                    return true;
+                },
+                style: {
+                    margin: '0',
+                    transform: 'none'
+                }
+            });
 
         const STORY_WIDTH = 1080;
         const STORY_HEIGHT = 1920;
         const storyCanvas = document.createElement('canvas');
         storyCanvas.width = STORY_WIDTH;
         storyCanvas.height = STORY_HEIGHT;
-        const storyCtx = storyCanvas.getContext('2d');
+        const storyCtx = storyCanvas.getContext('2d', { willReadFrequently: true });
         if (!storyCtx) {
             throw new Error('Share canvas unavailable.');
         }
@@ -1725,6 +1743,9 @@ async function shareCurrentView(mode) {
         } else {
             triggerDownload(blob, filename);
             showShareToast('Downloaded. Upload to Instagram manually.', 'info');
+        }
+        } finally {
+            externalStyles.forEach((link) => document.head.appendChild(link));
         }
     } catch (error) {
         if (error.name === 'AbortError') {
@@ -1975,21 +1996,16 @@ function renderMarkers(onDone) {
     if (filteredLocations.length === 0) {
         timelineUtils.Logger.warn('No locations found for selected year');
         markers.clearLayers();
+        if (heatLayer && map.hasLayer(heatLayer)) map.removeLayer(heatLayer);
         if (typeof onDone === 'function') onDone();
         return;
     }
-
-    const useClustering = filteredLocations.length > MARKER_CLUSTER_THRESHOLD;
-    ensureMarkerLayerType(useClustering);
-    markers.clearLayers();
 
     // Calculate bounds
     const bounds = L.latLngBounds([]);
     filteredLocations.forEach(loc => {
         bounds.extend([loc.lat, loc.lng]);
     });
-
-    // Fit map to bounds, but avoid over-zoom on single points
     const northEast = bounds.getNorthEast();
     const southWest = bounds.getSouthWest();
     const isSinglePoint = northEast.lat === southWest.lat && northEast.lng === southWest.lng;
@@ -2000,21 +2016,41 @@ function renderMarkers(onDone) {
     }
     lastMapView = { center: map.getCenter(), zoom: map.getZoom() };
 
-    // Cap visible markers and optionally show "Showing first N" message
-    const totalCount = filteredLocations.length;
-    const locationsToAdd = totalCount > MAX_VISIBLE_MARKERS
-        ? filteredLocations.slice(0, MAX_VISIBLE_MARKERS)
-        : filteredLocations;
     const capMessageEl = document.getElementById('map-markers-cap-message');
     if (capMessageEl) {
-        if (totalCount > MAX_VISIBLE_MARKERS) {
-            capMessageEl.textContent = `Showing first ${MAX_VISIBLE_MARKERS} of ${totalCount} locations`;
-            capMessageEl.classList.remove('hidden');
-        } else {
-            capMessageEl.classList.add('hidden');
-            capMessageEl.textContent = '';
-        }
+        capMessageEl.classList.add('hidden');
+        capMessageEl.textContent = '';
     }
+
+    // Use heatmap for large datasets (single canvas, fast render)
+    if (filteredLocations.length > HEATMAP_THRESHOLD && typeof L.heatLayer === 'function') {
+        if (markers && map.hasLayer(markers)) map.removeLayer(markers);
+        const heatPoints = filteredLocations.map(loc => [loc.lat, loc.lng, 0.6]);
+        if (heatLayer && map.hasLayer(heatLayer)) map.removeLayer(heatLayer);
+        heatLayer = L.heatLayer(heatPoints, {
+            radius: 28,
+            blur: 20,
+            maxZoom: 17,
+            minOpacity: 0.35,
+            gradient: { 0.2: '#6366f1', 0.5: '#8b5cf6', 0.8: '#a855f7', 1: '#c084fc' }
+        });
+        map.addLayer(heatLayer);
+        timelineUtils.Logger.info(`Rendered ${filteredLocations.length} points as heatmap`);
+        if (typeof onDone === 'function') onDone();
+        return;
+    }
+
+    // Markers path: remove heatmap if present, use markers (with clustering when many)
+    if (heatLayer && map.hasLayer(heatLayer)) {
+        map.removeLayer(heatLayer);
+        heatLayer = null;
+    }
+
+    const useClustering = filteredLocations.length > MARKER_CLUSTER_THRESHOLD;
+    ensureMarkerLayerType(useClustering);
+    markers.clearLayers();
+
+    const locationsToAdd = filteredLocations;
 
     function addOneMarker(loc) {
         const popupContent = buildPopupContent(loc);
@@ -2024,8 +2060,8 @@ function renderMarkers(onDone) {
                 <div class="map-marker-inner"></div>
                 <div class="map-marker-pulse"></div>
             </div>`,
-            iconSize: [16, 16],
-            iconAnchor: [8, 8]
+            iconSize: [20, 20],
+            iconAnchor: [10, 10]
         });
         const marker = L.marker([loc.lat, loc.lng], { icon: pointIcon }).bindPopup(popupContent);
         markers.addLayer(marker);
