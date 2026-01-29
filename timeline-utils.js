@@ -252,7 +252,7 @@
 
     function calculateAdvancedStats(segments) {
         const stats = {
-            eco: { totalCo2: 0, breakdown: {} },
+            eco: { totalCo2: 0, breakdown: {}, distanceByType: {} },
             time: { moving: 0, stationary: 0, total: 0 },
             records: { longestDrive: 0, longestWalk: 0, maxVelocity: 0 }
         };
@@ -281,6 +281,7 @@
 
                 const type = segment.activity.topCandidate?.type || 'UNKNOWN';
                 const distanceKm = (segment.activity.distanceMeters || 0) / 1000;
+                stats.eco.distanceByType[type] = (stats.eco.distanceByType[type] || 0) + distanceKm;
 
                 // Eco Calc
                 const factor = emissionFactors[type] || 0;

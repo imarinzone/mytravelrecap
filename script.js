@@ -6,8 +6,6 @@ let selectedYear = null;
 let allLocations = []; // Store loaded locations for filtering
 let allSegments = []; // Store all timeline segments (visits and activities)
 let globe = null; // Globe instance
-let summaryGlobe = null;
-let isSummaryGlobeSyncing = false;
 let isMapOverlayOpen = false;
 let lastMapView = null;
 let isMapInitialized = false;
@@ -618,7 +616,6 @@ function renderDashboard() {
     // 4. Update UI Sections
     renderStatistics(stats);
     renderTravelSummary(stats);
-    initSummaryGlobe();
     renderTravelTrends(stats.transport);
     renderVisitTrends(stats.visits);
     renderHighlights(stats.visits, statsSegments);
@@ -648,13 +645,18 @@ function renderDashboard() {
 
 function renderEcoImpact(ecoStats) {
     // Update Typography Story Section for Eco
-    const totalKg = Math.round(ecoStats.totalCo2 / 1000);
-    const treesNeeded = Math.ceil(totalKg / 25); // Approx 25kg CO2 per tree per year
+    const distanceByType = ecoStats.distanceByType || {};
+    const nonVehicleKm = (distanceByType.WALKING || 0)
+        + (distanceByType.RUNNING || 0)
+        + (distanceByType.CYCLING || 0);
+    const vehicleFactor = 150; // g CO2 per km for passenger vehicle
+    const savedKg = Math.round((nonVehicleKm * vehicleFactor) / 1000);
+    const treesNeeded = Math.ceil(savedKg / 25); // Approx 25kg CO2 per tree per year
     
     // Eco CO2 story element
     const ecoCo2El = document.getElementById('stat-eco-co2');
     if (ecoCo2El) {
-        ecoCo2El.textContent = `${totalKg.toLocaleString()} kg CO₂`;
+        ecoCo2El.textContent = `${savedKg.toLocaleString()} kg CO₂ saved`;
     }
     
     // Trees count element
@@ -1492,9 +1494,42 @@ async function shareCurrentView(mode) {
             }
         });
 
-        drawShareOverlay(canvas, details.title, details.lines, pixelRatio);
+        const STORY_WIDTH = 1080;
+        const STORY_HEIGHT = 1920;
+        const storyCanvas = document.createElement('canvas');
+        storyCanvas.width = STORY_WIDTH;
+        storyCanvas.height = STORY_HEIGHT;
+        const storyCtx = storyCanvas.getContext('2d');
+        if (!storyCtx) {
+            throw new Error('Share canvas unavailable.');
+        }
 
-        const blob = await new Promise((resolve) => canvas.toBlob(resolve, 'image/png'));
+        storyCtx.fillStyle = themeBackground;
+        storyCtx.fillRect(0, 0, STORY_WIDTH, STORY_HEIGHT);
+
+        const sourceAspect = canvas.width / canvas.height;
+        const targetAspect = STORY_WIDTH / STORY_HEIGHT;
+        let drawWidth = STORY_WIDTH;
+        let drawHeight = STORY_HEIGHT;
+        let offsetX = 0;
+        let offsetY = 0;
+
+        if (sourceAspect > targetAspect) {
+            drawHeight = STORY_HEIGHT;
+            drawWidth = canvas.width * (STORY_HEIGHT / canvas.height);
+            offsetX = (STORY_WIDTH - drawWidth) / 2;
+        } else {
+            drawWidth = STORY_WIDTH;
+            drawHeight = canvas.height * (STORY_WIDTH / canvas.width);
+            offsetY = (STORY_HEIGHT - drawHeight) / 2;
+        }
+
+        storyCtx.drawImage(canvas, offsetX, offsetY, drawWidth, drawHeight);
+
+        const overlayScale = (STORY_WIDTH / canvas.width) * pixelRatio;
+        drawShareOverlay(storyCanvas, details.title, details.lines, overlayScale);
+
+        const blob = await new Promise((resolve) => storyCanvas.toBlob(resolve, 'image/png'));
         if (!blob) {
             throw new Error('Image capture failed.');
         }
@@ -1557,6 +1592,15 @@ function initShareControls() {
     }
 }
 
+function initTopControl() {
+    const topButton = document.getElementById('taskbar-top');
+    if (!topButton) return;
+
+    topButton.addEventListener('click', () => {
+        window.scrollTo({ top: 0, behavior: 'smooth' });
+    });
+}
+
 function renderTravelSummary(stats) {
     const worldTripsEl = document.getElementById('world-percentage');
     const worldTripsLabel = document.getElementById('world-percentage-label');
@@ -1590,29 +1634,6 @@ function renderTravelSummary(stats) {
             You've travelled about <strong>${Math.round(distanceKm).toLocaleString()} km</strong> this period,<br>
             which is <strong>${tripsAroundWorld} trips</strong> around the Earth.
         `;
-    }
-}
-
-function initSummaryGlobe() {
-    const summaryContainer = document.getElementById('summary-globe-container');
-    if (!summaryContainer || typeof Globe === 'undefined') return;
-
-    if (!summaryGlobe) {
-        const visitedCountries = window.visitedCountriesArray || [];
-        summaryGlobe = new Globe('summary-globe-container', visitedCountries);
-        summaryContainer.dataset.docked = 'true';
-        summaryGlobe.stopRotation();
-    }
-
-    if (!isSummaryGlobeSyncing) {
-        isSummaryGlobeSyncing = true;
-        const sync = () => {
-            if (globe && summaryGlobe) {
-                summaryGlobe.setRotation(globe.getRotation());
-            }
-            requestAnimationFrame(sync);
-        };
-        requestAnimationFrame(sync);
     }
 }
 
@@ -2020,7 +2041,13 @@ if (document.readyState === 'loading') {
             demoButton.addEventListener('click', loadDemoData);
         }
 
+        const restartButton = document.getElementById('restart-button');
+        if (restartButton) {
+            restartButton.addEventListener('click', () => window.location.reload());
+        }
+
         initShareControls();
+        initTopControl();
     });
 } else {
     // Initialize global theme first
@@ -2056,7 +2083,13 @@ if (document.readyState === 'loading') {
         demoButton.addEventListener('click', loadDemoData);
     }
 
+    const restartButton = document.getElementById('restart-button');
+    if (restartButton) {
+        restartButton.addEventListener('click', () => window.location.reload());
+    }
+
     initShareControls();
+    initTopControl();
 }
 
 // Globe Scroll Animation

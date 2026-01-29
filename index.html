@@ -889,7 +889,11 @@
             background: transparent;
             border: none;
             box-shadow: none;
-            padding: 2px;
+            padding: 0;
+        }
+
+        .taskbar .timeline-modern-wrapper {
+            justify-content: flex-start;
         }
 
         .taskbar .timeline-year-btn,
@@ -1027,14 +1031,14 @@
         }
         
         .timeline-year-btn.active {
-            color: white;
-            background: transparent;
-            box-shadow: none;
+            color: #ffffff;
+            background: #3b82f6;
+            box-shadow: 0 10px 22px rgba(59, 130, 246, 0.45);
         }
-        
+
         body.dark .timeline-year-btn.active {
-            background: transparent;
-            box-shadow: none;
+            background: #3b82f6;
+            box-shadow: 0 10px 22px rgba(59, 130, 246, 0.45);
         }
         
         /* Legacy classes for backward compatibility - style same as modern buttons */
@@ -1066,9 +1070,21 @@
         
         .timeline-year-point.active,
         .timeline-all-years.active {
-            color: white;
-            background: transparent;
-            box-shadow: none;
+            color: #ffffff;
+            background: #3b82f6;
+            box-shadow: 0 10px 22px rgba(59, 130, 246, 0.45);
+        }
+
+        .glow-blue-btn {
+            background: #3b82f6;
+            color: #ffffff;
+            border-color: rgba(59, 130, 246, 0.65);
+            box-shadow: 0 10px 22px rgba(59, 130, 246, 0.45);
+        }
+
+        .glow-blue-btn:hover {
+            background: #2563eb;
+            border-color: rgba(37, 99, 235, 0.7);
         }
 
         /* Timeline switch knob (like theme toggle) */
@@ -1819,14 +1835,13 @@
     <div id="top-control-bar" class="fixed bottom-4 left-0 right-0 z-[300] transition-colors duration-300">
         <div class="taskbar-shell">
             <div class="taskbar">
-                <!-- Timeline Year Selector (Centered) -->
-                <div id="timeline-selector-container" class="hidden taskbar-section">
-                    <span class="taskbar-label hidden sm:inline">Timeline</span>
-                    <div class="timeline-modern-wrapper">
-                        <div id="timeline-years" class="timeline-modern-container">
-                            <!-- Year buttons will be dynamically added here -->
-                        </div>
-                    </div>
+                <!-- Move to top -->
+                <div class="taskbar-section">
+                    <button id="taskbar-top"
+                        class="glow-blue-btn inline-flex items-center justify-center px-3 py-2 rounded-full shadow-sm border transition-colors"
+                        aria-label="Back to top">
+                        <span class="material-icons-round text-sm">north</span>
+                    </button>
                 </div>
 
                 <span class="taskbar-divider hidden sm:inline"></span>
@@ -1849,10 +1864,32 @@
                 <!-- Share button -->
                 <div class="taskbar-section">
                     <button id="taskbar-share"
-                        class="hidden inline-flex items-center gap-2 px-4 py-2 rounded-full bg-white/70 hover:bg-white text-gray-700 shadow-sm border border-white/60 transition-colors">
+                        class="glow-blue-btn hidden inline-flex items-center justify-center px-3 py-2 rounded-full shadow-sm border transition-colors"
+                        aria-label="Share">
                         <span class="material-icons-round text-sm">ios_share</span>
-                        <span class="text-xs font-semibold uppercase tracking-widest">Share</span>
                     </button>
+                </div>
+
+                <span class="taskbar-divider hidden sm:inline"></span>
+
+                <!-- Restart -->
+                <div class="taskbar-section">
+                    <button id="restart-button"
+                        class="glow-blue-btn hidden inline-flex items-center justify-center px-3 py-2 rounded-full shadow-sm border transition-colors"
+                        aria-label="Start again">
+                        <span class="material-icons-round text-sm">restart_alt</span>
+                    </button>
+                </div>
+
+                <span class="taskbar-divider hidden sm:inline"></span>
+
+                <!-- Timeline Year Selector (Centered) -->
+                <div id="timeline-selector-container" class="hidden taskbar-section">
+                    <div class="timeline-modern-wrapper">
+                        <div id="timeline-years" class="timeline-modern-container">
+                            <!-- Year buttons will be dynamically added here -->
+                        </div>
+                    </div>
                 </div>
             </div>
         </div>
@@ -2048,33 +2085,28 @@
             <!-- Eco Impact Story -->
             <section class="story-section min-h-[50vh] flex items-center justify-center py-16 opacity-0 scroll-trigger" id="story-eco">
                 <div class="text-center max-w-4xl mx-auto px-4">
-                    <p class="text-lg text-green-600 dark:text-green-400 mb-4 uppercase tracking-widest font-medium">Environmental Impact</p>
+                    <p class="text-lg text-green-600 dark:text-green-400 mb-4 uppercase tracking-widest font-medium">Emissions Saved</p>
                     <h2 class="story-headline text-5xl md:text-7xl font-black text-gray-900 dark:text-white leading-tight mb-6" id="stat-eco-co2">
-                        0 kg CO₂
+                        0 kg CO₂ saved
                     </h2>
                     <p class="text-xl md:text-2xl text-gray-600 dark:text-gray-300 font-light" id="stat-eco-trees">
-                        You'd need <span class="font-bold text-green-600 dark:text-green-400" id="stat-trees-count">0</span> trees to offset this
+                        Equivalent to <span class="font-bold text-green-600 dark:text-green-400" id="stat-trees-count">0</span> trees absorbing CO₂ for a year
                     </p>
                 </div>
             </section>
 
-            <!-- Travel Summary (Globe) - kept intact -->
-            <section class="glass rounded-3xl p-8 shadow-lg border border-white/50 dark:border-gray-700/50 relative overflow-hidden transition-colors duration-300 my-24 opacity-0 scroll-trigger"
-                id="travel-summary-card">
-                <div class="relative z-10 flex flex-col md:flex-row items-center gap-12">
-                    <div class="relative group cursor-pointer w-48 h-48 flex items-center justify-center rounded-full bg-gradient-to-r from-blue-500/10 to-purple-500/10 dark:from-blue-500/20 dark:to-purple-500/20">
-                        <div id="summary-globe-container" class="absolute inset-0 opacity-70 pointer-events-none"></div>
-                        <div class="absolute inset-0 flex flex-col items-center justify-center">
-                            <span class="text-4xl font-black text-gray-900 dark:text-white drop-shadow-sm"
-                                id="world-percentage">--</span>
-                            <span class="text-xs font-bold text-gray-600 dark:text-gray-300 tracking-wider uppercase"
-                                id="world-percentage-label">Trips Around Earth</span>
+            <!-- Travel Summary (Text stats) -->
+            <section class="my-24 opacity-0 scroll-trigger" id="travel-summary-card">
+                <div class="max-w-4xl mx-auto px-4 text-left">
+                    <p class="text-xs uppercase tracking-widest text-gray-500 dark:text-gray-400 mb-2">Travel Summary</p>
+                    <div class="space-y-4 text-sm text-gray-600 dark:text-gray-300">
+                        <div class="flex items-baseline gap-2">
+                            <span id="world-percentage"
+                                class="text-lg font-semibold text-gray-900 dark:text-white">0.0</span>
+                            <span id="world-percentage-label"
+                                class="uppercase tracking-wide text-xs text-gray-500 dark:text-gray-400">Trips Around Earth</span>
                         </div>
-                    </div>
-
-                    <div class="flex-1 text-center md:text-left space-y-4">
-                        <h3 class="text-3xl font-bold text-gray-800 dark:text-white">Your Global Footprint</h3>
-                        <p class="text-xl text-gray-600 dark:text-gray-300 leading-relaxed" id="travel-description">
+                        <p class="text-base text-gray-600 dark:text-gray-300 leading-relaxed" id="travel-description">
                             Analysis pending...
                         </p>
                     </div>
@@ -2119,11 +2151,6 @@
                 <div id="globe-map-hint" class="mt-6 text-sm text-gray-500 dark:text-gray-400 opacity-0 transition-opacity duration-300">
                     Click the globe to open the map
                 </div>
-                <button id="restart-button" onclick="window.location.reload()"
-                    class="interactive hidden mt-6 inline-flex items-center gap-2 px-4 py-2 bg-white/60 dark:bg-gray-700/60 text-gray-800 dark:text-gray-200 rounded-xl font-medium hover:bg-white dark:hover:bg-gray-700 shadow-sm border border-white/70 dark:border-gray-600 transition-colors">
-                    <span class="material-icons-round text-sm">restart_alt</span>
-                    <span>Start again</span>
-                </button>
             </div>
 
             <!-- Map Overlay (opened on globe click) -->
@@ -2131,9 +2158,9 @@
                 <div class="w-full h-full flex items-center justify-center">
                     <section class="map-overlay-card glass dark:glass-dark rounded-3xl shadow-lg border border-white/50 dark:border-gray-700/50 overflow-hidden w-full h-full max-w-6xl relative">
                         <button id="map-overlay-close"
-                            class="absolute top-3 right-3 z-[2000] w-9 h-9 rounded-full text-gray-700 hover:text-gray-900 bg-white/80 hover:bg-white dark:bg-gray-900/90 dark:text-gray-100 dark:hover:bg-gray-900 shadow-sm transition-colors flex items-center justify-center border border-white/40 dark:border-white/10"
+                            class="glow-blue-btn absolute top-3 right-3 z-[2000] w-9 h-9 rounded-full shadow-sm transition-colors flex items-center justify-center border"
                             title="Close map">
-                            <span class="material-icons-round text-base dark:text-black">close</span>
+                            <span class="material-icons-round text-base">close</span>
                         </button>
                         <div id="map-container-wrapper" class="relative bg-gray-100 dark:bg-gray-800 w-full h-full transition-colors duration-300">
                             <div id="map" class="w-full h-full"></div>
@@ -2168,9 +2195,9 @@
                 <div class="flex items-start justify-between mb-4">
                     <h3 class="text-lg font-semibold text-gray-900 dark:text-white">Share recap</h3>
                     <button id="share-dialog-close"
-                        class="w-8 h-8 rounded-full text-gray-600 hover:text-gray-900 bg-white/80 hover:bg-white dark:bg-gray-900/90 dark:text-gray-100 dark:hover:bg-gray-900 shadow-sm transition-colors flex items-center justify-center border border-white/40 dark:border-white/10"
+                        class="glow-blue-btn w-8 h-8 rounded-full shadow-sm transition-colors flex items-center justify-center border"
                         title="Close">
-                        <span class="material-icons-round text-sm dark:text-black">close</span>
+                        <span class="material-icons-round text-sm">close</span>
                     </button>
                 </div>
                 <p class="text-sm text-gray-600 dark:text-gray-300 mb-5">
