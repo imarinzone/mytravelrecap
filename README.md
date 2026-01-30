@@ -1,16 +1,16 @@
 <p align="center">
-  <strong>travelrecap.my</strong>
+  <strong>mytravelrecap</strong>
 </p>
 <p align="center">
   Your travel recap from Google Maps Timeline — 100% client-side, private, and open source.
 </p>
 
 <p align="center">
-  <a href="https://github.com/imarinzone/travelrecap.my/blob/main/LICENSE"><img src="https://img.shields.io/github/license/imarinzone/travelrecap.my?color=blue" alt="License: MIT"></a>
-  <a href="https://github.com/imarinzone/travelrecap.my"><img src="https://img.shields.io/github/package-json/v/imarinzone/travelrecap.my?label=version" alt="Version"></a>
-  <a href="https://github.com/imarinzone/travelrecap.my"><img src="https://img.shields.io/github/languages/count/imarinzone/travelrecap.my" alt="Languages"></a>
-  <a href="https://github.com/imarinzone/travelrecap.my"><img src="https://img.shields.io/github/repo-size/imarinzone/travelrecap.my" alt="Repo size"></a>
-  <a href="https://github.com/imarinzone/travelrecap.my/issues"><img src="https://img.shields.io/github/issues/imarinzone/travelrecap.my" alt="Issues"></a>
+  <a href="https://github.com/imarinzone/mytravelrecap/blob/main/LICENSE"><img src="https://img.shields.io/github/license/imarinzone/mytravelrecap?color=blue" alt="License: MIT"></a>
+  <a href="https://github.com/imarinzone/mytravelrecap"><img src="https://img.shields.io/github/package-json/v/imarinzone/mytravelrecap?label=version" alt="Version"></a>
+  <a href="https://github.com/imarinzone/mytravelrecap"><img src="https://img.shields.io/github/languages/count/imarinzone/mytravelrecap" alt="Languages"></a>
+  <a href="https://github.com/imarinzone/mytravelrecap"><img src="https://img.shields.io/github/repo-size/imarinzone/mytravelrecap" alt="Repo size"></a>
+  <a href="https://github.com/imarinzone/mytravelrecap/issues"><img src="https://img.shields.io/github/issues/imarinzone/mytravelrecap" alt="Issues"></a>
 </p>
 
 ---
@@ -52,8 +52,8 @@ A single-page static site that turns your **Google Takeout timeline** into a typ
 The site is **100% static**: CSS is committed, so no build is required to run or deploy.
 
 ```bash
-git clone https://github.com/imarinzone/travelrecap.my.git
-cd travelrecap.my
+git clone https://github.com/imarinzone/mytravelrecap.git
+cd mytravelrecap
 npx serve
 ```
 
@@ -81,7 +81,7 @@ Country names are resolved offline using `data/countries.geojson` (point-in-poly
 ## Project structure
 
 ```
-travelrecap.my/
+mytravelrecap/
 ├── index.html           # Single-page app
 ├── script.js            # UI, map, and DOM logic
 ├── timeline-utils.js    # Parsing, stats, geo helpers
@@ -147,8 +147,8 @@ Push to your connected repo; no extra config needed.
 
 Contributions are welcome.
 
-1. Open an [issue](https://github.com/imarinzone/travelrecap.my/issues) for bugs or ideas.
-2. Fork the repo, create a branch, and open a [pull request](https://github.com/imarinzone/travelrecap.my/pulls).
+1. Open an [issue](https://github.com/imarinzone/mytravelrecap/issues) for bugs or ideas.
+2. Fork the repo, create a branch, and open a [pull request](https://github.com/imarinzone/mytravelrecap/pulls).
 3. Run `npm test` before submitting.
 
 ---

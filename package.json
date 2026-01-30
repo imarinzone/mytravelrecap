@@ -1,5 +1,5 @@
 {
-  "name": "travelrecap.my",
+  "name": "mytravelrecap",
   "version": "1.0.0",
   "description": "Your travel recap using Google Maps Timeline data.",
   "main": "script.js",
@@ -11,15 +11,15 @@
   },
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/imarinzone/travelrecap.my.git"
+    "url": "git+https://github.com/imarinzone/mytravelrecap.git"
   },
   "keywords": [],
   "author": "",
   "license": "MIT",
   "bugs": {
-    "url": "https://github.com/imarinzone/travelrecap.my/issues"
+    "url": "https://github.com/imarinzone/mytravelrecap/issues"
   },
-  "homepage": "https://github.com/imarinzone/travelrecap.my#readme",
+  "homepage": "https://github.com/imarinzone/mytravelrecap#readme",
   "dependencies": {
     "@vercel/speed-insights": "^1.0.0"
   },

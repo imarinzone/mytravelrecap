@@ -149,4 +149,4 @@ data/*
 .DS_Store
 
 # npm pack / versioned artifact (stray file)
-travelrecap.my@1.0.0
+mytravelrecap@1.0.0
