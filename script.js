@@ -141,6 +141,7 @@ function initializeYearFilter(availableYears) {
         timelineSelectorContainer.classList.add('flex');
         if (yearTimelineBar) {
             yearTimelineBar.classList.remove('hidden');
+            setTimeout(scrollActiveYearToCenter, 80);
         }
     } else if (yearTimelineBar) {
         yearTimelineBar.classList.add('hidden');
@@ -177,6 +178,35 @@ function initializeYearFilter(availableYears) {
         // Update title to reflect year
         document.getElementById('header-title').textContent = `Your ${selectedYear} Recap`;
     }
+
+    // Center-scroll: when user scrolls the year bar, select the year that ends up in the center
+    const shell = document.getElementById('year-timeline-shell');
+    if (shell && availableYears.length > 0 && !shell.dataset.scrollListenerAttached) {
+        shell.dataset.scrollListenerAttached = '1';
+        let scrollEndTimer = null;
+        shell.addEventListener('scroll', () => {
+            clearTimeout(scrollEndTimer);
+            scrollEndTimer = setTimeout(() => {
+                const shellRect = shell.getBoundingClientRect();
+                const centerX = shellRect.left + shellRect.width / 2;
+                const buttons = shell.querySelectorAll('.timeline-year-btn');
+                let closest = null;
+                let closestDist = Infinity;
+                buttons.forEach((btn) => {
+                    const r = btn.getBoundingClientRect();
+                    const btnCenter = r.left + r.width / 2;
+                    const dist = Math.abs(btnCenter - centerX);
+                    if (dist < closestDist) {
+                        closestDist = dist;
+                        closest = btn;
+                    }
+                });
+                if (closest && closest.dataset.year !== (selectedYear || '')) {
+                    selectTimelineYear(closest.dataset.year);
+                }
+            }, 120);
+        }, { passive: true });
+    }
 }
 
 // Select a year from the timeline
@@ -194,6 +224,19 @@ function selectTimelineYear(year) {
     
     // Trigger the same filter logic as the old dropdown
     onYearFilterChange({ target: { value: year } });
+}
+
+// Scroll the year timeline so the selected year is in the center
+function scrollActiveYearToCenter() {
+    const shell = document.getElementById('year-timeline-shell');
+    if (!shell) return;
+    const activeBtn = shell.querySelector('.timeline-year-btn.active');
+    if (!activeBtn) return;
+    const shellRect = shell.getBoundingClientRect();
+    const btnRect = activeBtn.getBoundingClientRect();
+    const btnCenter = btnRect.left - shellRect.left + btnRect.width / 2;
+    const scrollTarget = shell.scrollLeft + btnCenter - shell.clientWidth / 2;
+    shell.scrollTo({ left: Math.max(0, scrollTarget), behavior: 'smooth' });
 }
 
 // Update visual selection state on timeline
@@ -221,6 +264,9 @@ function updateTimelineSelection() {
         knob.style.width = `${width}px`;
         knob.style.transform = `translateX(${left}px)`;
     }
+
+    // Keep selected year centered in the timeline bar
+    requestAnimationFrame(() => scrollActiveYearToCenter());
 }
 
 // ===== GLOBAL THEME SYSTEM =====
@@ -1604,6 +1650,11 @@ async function shareCurrentView(mode) {
             return origGetContext.call(this, contextId, options);
         };
 
+        // Hide map zoom (+/-) and Leaflet attribution in the captured share image
+        if (useMapBackground && mapContainer) {
+            mapContainer.classList.add('share-capture');
+        }
+
         try {
             const canvas = await htmlToImage.toCanvas(node, {
                 backgroundColor: themeBackground,
@@ -1686,6 +1737,9 @@ async function shareCurrentView(mode) {
             showShareToast('Downloaded. Upload to Instagram manually.', 'info');
         }
         } finally {
+            if (useMapBackground && mapContainer) {
+                mapContainer.classList.remove('share-capture');
+            }
             externalStyles.forEach((link) => document.head.appendChild(link));
         }
     } catch (error) {

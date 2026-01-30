@@ -858,39 +858,62 @@
             box-shadow: 0 10px 30px rgba(0, 0, 0, 0.25), inset 0 1px 0 rgba(255, 255, 255, 0.04);
         }
 
-        /* Year timeline bar: whole bar scrolls, glass pill, centered like main taskbar */
+        /* Year timeline bar: pill only as wide as year content; spacers let any year scroll to center */
         #year-timeline-bar .taskbar-shell {
             pointer-events: auto;
             overflow-x: auto;
             overflow-y: hidden;
             -webkit-overflow-scrolling: touch;
-            justify-content: center;
-            padding-left: 16px;
-            padding-right: 16px;
+            justify-content: flex-start;
+            padding: 10px 0;
             max-width: 100%;
+            scroll-snap-type: x mandatory;
+            scroll-padding-inline: 50%;
         }
 
         #year-timeline-bar .taskbar-shell::-webkit-scrollbar {
             display: none;
         }
 
+        .year-timeline-scroll-wrapper {
+            display: flex;
+            flex-shrink: 0;
+            width: max-content;
+            align-items: center;
+        }
+
+        .year-timeline-spacer {
+            flex: 0 0 calc(50vw - 3rem);
+            min-width: 0;
+            pointer-events: none;
+        }
+
         #year-timeline-bar .taskbar {
             flex-shrink: 0;
             width: max-content;
+            min-height: 0;
             max-width: none;
             overflow: visible;
-            /* Glass: more translucent */
-            background: rgba(255, 255, 255, 0.25);
-            border: 1px solid rgba(255, 255, 255, 0.3);
-            box-shadow: 0 8px 32px rgba(15, 23, 42, 0.1), inset 0 1px 0 rgba(255, 255, 255, 0.35);
-            backdrop-filter: blur(20px) saturate(1.2);
-            -webkit-backdrop-filter: blur(20px) saturate(1.2);
+            justify-content: flex-start;
+            /* Same padding as bottom taskbar – pill only as wide as years + this padding */
+            padding: 8px 14px;
+            /* Same glass as bottom taskbar */
+            background: rgba(255, 255, 255, 0.35);
+            border: 1px solid rgba(255, 255, 255, 0.35);
+            box-shadow: 0 8px 24px rgba(15, 23, 42, 0.08), inset 0 1px 0 rgba(255, 255, 255, 0.4);
+            backdrop-filter: blur(22px) saturate(1.1);
+            -webkit-backdrop-filter: blur(22px) saturate(1.1);
         }
 
         body.dark #year-timeline-bar .taskbar {
-            background: rgba(15, 23, 42, 0.25);
-            border-color: rgba(148, 163, 184, 0.15);
-            box-shadow: 0 10px 32px rgba(0, 0, 0, 0.3), inset 0 1px 0 rgba(255, 255, 255, 0.05);
+            background: rgba(15, 23, 42, 0.35);
+            border-color: rgba(148, 163, 184, 0.12);
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.25), inset 0 1px 0 rgba(255, 255, 255, 0.04);
+        }
+
+        /* Snap each year to center when scrolling */
+        #year-timeline-bar .timeline-year-btn {
+            scroll-snap-align: center;
         }
 
         .taskbar-section {
@@ -1262,6 +1285,12 @@
         
         body.dark .leaflet-popup-tip {
             background: #1e293b;
+        }
+        
+        /* Hide zoom (+/-) and attribution when capturing map for share image */
+        #map-container-wrapper.share-capture .leaflet-control-zoom,
+        #map-container-wrapper.share-capture .leaflet-control-attribution {
+            display: none !important;
         }
         
         /* Globe theme styles */
@@ -1942,16 +1971,20 @@
 
     <!-- Top Year Timeline Bar (hidden until data is processed) -->
     <div id="year-timeline-bar" class="fixed top-4 left-0 right-0 z-[300] pointer-events-none hidden">
-        <div class="taskbar-shell pointer-events-none">
-            <div class="taskbar justify-center pointer-events-auto">
-                <!-- Timeline Year Selector (Centered, top-only) -->
-                <div id="timeline-selector-container" class="hidden taskbar-section">
-                    <div class="timeline-modern-wrapper">
-                        <div id="timeline-years" class="timeline-modern-container">
-                            <!-- Year buttons will be dynamically added here -->
+        <div class="taskbar-shell pointer-events-auto" id="year-timeline-shell">
+            <div id="year-timeline-scroll-wrapper" class="year-timeline-scroll-wrapper">
+                <span class="year-timeline-spacer" aria-hidden="true"></span>
+                <div class="taskbar pointer-events-auto">
+                    <!-- Timeline Year Selector (Centered, top-only) -->
+                    <div id="timeline-selector-container" class="hidden taskbar-section">
+                        <div class="timeline-modern-wrapper">
+                            <div id="timeline-years" class="timeline-modern-container">
+                                <!-- Year buttons will be dynamically added here -->
+                            </div>
                         </div>
                     </div>
                 </div>
+                <span class="year-timeline-spacer" aria-hidden="true"></span>
             </div>
         </div>
     </div>
