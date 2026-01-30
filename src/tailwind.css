@@ -1,6 +1,9 @@
-@tailwind base;
-@tailwind components;
-@tailwind utilities;
+@import "tailwindcss";
+
+/* Content to scan for class names */
+@source "../index.html";
+@source "../script.js";
+@source "../components/**/*.{js,ts,tsx}";
 
 /* ===== ANIMATED STAT SCENE KEYFRAMES ===== */
 

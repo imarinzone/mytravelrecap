@@ -6,8 +6,8 @@
   "scripts": {
     "test": "jest",
     "build": "npm run build:css",
-    "build:css": "node ./tailwindcss -i ./src/tailwind.css -o ./tailwind.css --minify",
-    "watch:css": "node ./tailwindcss -i ./src/tailwind.css -o ./tailwind.css --watch"
+    "build:css": "npx @tailwindcss/cli -i ./src/tailwind.css -o ./tailwind.css --minify",
+    "watch:css": "npx @tailwindcss/cli -i ./src/tailwind.css -o ./tailwind.css --watch"
   },
   "repository": {
     "type": "git",
@@ -24,6 +24,7 @@
     "@vercel/speed-insights": "^1.0.0"
   },
   "devDependencies": {
+    "@tailwindcss/cli": "^4.1.18",
     "autoprefixer": "^10.4.23",
     "jest": "^30.2.0",
     "postcss": "^8.5.6",

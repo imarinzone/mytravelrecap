@@ -49,15 +49,15 @@ A single-page static site that turns your **Google Takeout timeline** into a typ
 
 ## Quick start
 
+The site is **100% static**: CSS is committed, so no build is required to run or deploy.
+
 ```bash
 git clone https://github.com/imarinzone/travelrecap.my.git
 cd travelrecap.my
-npm install
-npm run build          # optional: generates tailwind.css (or use CDN fallback)
 npx serve
 ```
 
-Open **http://localhost:3000** (or the port shown). No build step is required for styles — the app falls back to the Tailwind CDN if `tailwind.css` is missing.
+Open **http://localhost:3000** (or the port shown). No `npm install` or build step needed — open `index.html` with any static server (or even `file://` for basic use).
 
 ---
 
@@ -65,9 +65,11 @@ Open **http://localhost:3000** (or the port shown). No build step is required fo
 
 ### Visualizing your data
 
-1. Export your timeline from [Google Takeout](https://takeout.google.com/) (JSON).
+1. **Export your timeline** (device-specific):
+   - **Android**: Settings → Location → Location Services → Timeline → **Export Timeline data** → choose Google Drive or local folder → Save. Wait for the export notification.
+   - **iOS**: Google Maps → profile picture → Settings → Personal Content → Location settings → **Export Timeline data** → Save to Files. The file is usually named `location-history.json`.
 2. Open the app in your browser.
-3. Click **Choose File** in “Upload Your Timeline Data” and select your `GoogleTimeline.json`.
+3. Click **Choose File** in “Upload Your Timeline Data” and select the exported file.
 4. The map and stats will update with your locations and metrics.
 
 ### Offline country lookup
@@ -83,9 +85,9 @@ travelrecap.my/
 ├── index.html           # Single-page app
 ├── script.js            # UI, map, and DOM logic
 ├── timeline-utils.js    # Parsing, stats, geo helpers
-├── tailwind.css         # Built CSS (npm run build; gitignored)
-├── src/tailwind.css     # Tailwind source + custom animations
-├── vercel.json          # Build command + headers
+├── tailwind.css         # Built Tailwind v4 CSS (committed; one-command: npm run build)
+├── src/tailwind.css     # Tailwind v4 source (@import "tailwindcss", @source, keyframes)
+├── vercel.json          # Headers (no build step)
 ├── data/
 │   └── countries.geojson
 ├── components/
@@ -100,12 +102,12 @@ travelrecap.my/
 ```bash
 npm install
 npm test                 # Jest tests for timeline-utils
-npm run build            # Build Tailwind once
+npm run build            # One command: rebuild tailwind.css (after editing src/tailwind.css or content)
 npm run watch:css        # Watch Tailwind while developing
 ```
 
 - **Tests**: Core logic lives in `timeline-utils.js`; tests are in `tests/`.
-- **Tailwind**: Use `npm run build` or `npm run watch:css` for the built styles, or rely on the CDN fallback when `tailwind.css` is missing.
+- **Tailwind**: Tailwind v4 via `@tailwindcss/cli`. `tailwind.css` is committed. To regenerate after editing `src/tailwind.css`, run **`npm run build`** (one command), then commit. No build runs on deploy.
 - **Localhost**: Vercel Speed Insights is disabled on localhost to keep the console clean.
 
 ---
@@ -133,7 +135,7 @@ Push to your connected repo; no extra config needed.
 
 | Category | Tools |
 |----------|--------|
-| Markup & styling | HTML5, Tailwind CSS (built in prod, CDN fallback locally) |
+| Markup & styling | HTML5, Tailwind CSS v4 (committed `tailwind.css`; one-command rebuild: `npm run build`) |
 | Logic | Vanilla JavaScript |
 | Maps | Leaflet.js, CartoDB tiles |
 | Animations | IntersectionObserver, CSS keyframes |
