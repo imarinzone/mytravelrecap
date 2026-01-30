@@ -2189,6 +2189,7 @@ function toggleFullscreen() {
             const allTimeText = document.getElementById('all-time-foreground-text');
             if (allTimeText) allTimeText.classList.remove('hidden');
             isMapOverlayOpen = false;
+            window.dispatchEvent(new Event('map-overlay-closed'));
         } else {
             mapOverlay.classList.remove('hidden');
             const allTimeText = document.getElementById('all-time-foreground-text');
@@ -2313,6 +2314,7 @@ if (document.readyState === 'loading') {
                 const allTimeText = document.getElementById('all-time-foreground-text');
                 if (allTimeText) allTimeText.classList.remove('hidden');
                 isMapOverlayOpen = false;
+                window.dispatchEvent(new Event('map-overlay-closed'));
             });
         }
 
@@ -2511,12 +2513,20 @@ function initGlobeMapReveal() {
     const hint = document.getElementById('globe-map-hint');
     const mapOverlay = document.getElementById('map-overlay');
     const allTimeText = document.getElementById('all-time-foreground-text');
-    
+
     if (!revealSection || !globeContainer) return;
-    
+
     let globeMapOpened = false;
     let clickHandlerAttached = false;
     let rotationStopped = false;
+
+    // When overlay is closed (X or fullscreen toggle), reset globe-open state so globe becomes visible again
+    // and allow reopening the map by clicking the globe again (re-attach click handler on next updateRevealAnimation)
+    window.addEventListener('map-overlay-closed', () => {
+        globeMapOpened = false;
+        clickHandlerAttached = false;
+        updateRevealAnimation();
+    });
     
     // Original globe position values
     const originalTop = 80; // 5rem = 80px
@@ -2534,7 +2544,7 @@ function initGlobeMapReveal() {
         const viewportHeight = window.innerHeight;
         const viewportWidth = window.innerWidth;
         const scrollTop = window.pageYOffset || document.documentElement.scrollTop;
-        
+
         // Get the reveal section position
         const revealRect = revealSection.getBoundingClientRect();
         const revealSectionHeight = revealSection.offsetHeight;
