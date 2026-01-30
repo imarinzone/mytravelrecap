@@ -5,8 +5,15 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Your Travel Recap</title>
-    <!-- Tailwind CSS -->
-    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Tailwind CSS: built file in production; CDN fallback for local dev when tailwind.css is missing -->
+    <link rel="stylesheet" href="tailwind.css" id="tailwind-css">
+    <script>
+      document.getElementById('tailwind-css').addEventListener('error', function () {
+        var s = document.createElement('script');
+        s.src = 'https://cdn.tailwindcss.com';
+        document.head.appendChild(s);
+      });
+    </script>
     <!-- Google Fonts -->
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -855,6 +862,41 @@
             background: rgba(15, 23, 42, 0.35);
             border-color: rgba(148, 163, 184, 0.12);
             box-shadow: 0 10px 30px rgba(0, 0, 0, 0.25), inset 0 1px 0 rgba(255, 255, 255, 0.04);
+        }
+
+        /* Year timeline bar: whole bar scrolls, glass pill, centered like main taskbar */
+        #year-timeline-bar .taskbar-shell {
+            pointer-events: auto;
+            overflow-x: auto;
+            overflow-y: hidden;
+            -webkit-overflow-scrolling: touch;
+            justify-content: center;
+            padding-left: 16px;
+            padding-right: 16px;
+            max-width: 100%;
+        }
+
+        #year-timeline-bar .taskbar-shell::-webkit-scrollbar {
+            display: none;
+        }
+
+        #year-timeline-bar .taskbar {
+            flex-shrink: 0;
+            width: max-content;
+            max-width: none;
+            overflow: visible;
+            /* Glass: more translucent */
+            background: rgba(255, 255, 255, 0.25);
+            border: 1px solid rgba(255, 255, 255, 0.3);
+            box-shadow: 0 8px 32px rgba(15, 23, 42, 0.1), inset 0 1px 0 rgba(255, 255, 255, 0.35);
+            backdrop-filter: blur(20px) saturate(1.2);
+            -webkit-backdrop-filter: blur(20px) saturate(1.2);
+        }
+
+        body.dark #year-timeline-bar .taskbar {
+            background: rgba(15, 23, 42, 0.25);
+            border-color: rgba(148, 163, 184, 0.15);
+            box-shadow: 0 10px 32px rgba(0, 0, 0, 0.3), inset 0 1px 0 rgba(255, 255, 255, 0.05);
         }
 
         .taskbar-section {
@@ -2245,11 +2287,20 @@
         </div>
     </section>
 
-    <!-- Vercel Speed Insights (static site – script runs when deployed on Vercel) -->
+    <!-- Vercel Speed Insights (only on production; skip on localhost to avoid console noise) -->
     <script>
       window.si = window.si || function () { (window.siq = window.siq || []).push(arguments); };
     </script>
-    <script defer src="/_vercel/speed-insights/script.js"></script>
+    <script>
+      (function () {
+        if (location.hostname === 'localhost' || location.hostname === '127.0.0.1') return;
+        var s = document.createElement('script');
+        s.src = '/_vercel/speed-insights/script.js';
+        s.defer = true;
+        s.onerror = function () { /* blocked by client (e.g. ad blocker) – ignore */ };
+        document.body.appendChild(s);
+      })();
+    </script>
 
     <!-- Scripts -->
     <script src="https://d3js.org/d3.v7.min.js"></script>

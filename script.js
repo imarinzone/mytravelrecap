@@ -1517,24 +1517,29 @@ function buildShareDetails(mode) {
     return { title: 'My Travel Recap', subtitle, statRows };
 }
 
-function drawShareOverlay(canvas, details, pixelRatio, isDark) {
+// Fixed layout for share image (1080×1920) so mobile and web look identical
+const SHARE_IMAGE_WIDTH = 1080;
+const SHARE_IMAGE_HEIGHT = 1920;
+
+function drawShareOverlay(canvas, details, _pixelRatio, isDark) {
     const ctx = canvas.getContext('2d', { willReadFrequently: true });
     if (!ctx) return;
 
     const { title, subtitle, statRows } = details;
     const w = canvas.width;
     const h = canvas.height;
-    const r = Math.max(1, Math.min(pixelRatio, 3));
-    const pad = 56;
-    const overlayEnd = w * 0.52;
-    const titleSize = 52 * r;
-    const subtitleSize = 26 * r;
-    const statLabelSize = 22 * r;
-    const statValueSize = 36 * r;
-    const statRowGap = 28 * r;
-    const footerSize = 20 * r;
-    const cardPad = 24;
-    const cardR = 20;
+    // Fixed scale so layout is identical on all devices (no overlap on mobile)
+    const scale = Math.min(w / SHARE_IMAGE_WIDTH, h / SHARE_IMAGE_HEIGHT, 1);
+    const pad = Math.round(56 * scale);
+    const overlayEnd = Math.round(w * 0.52);
+    const titleSize = Math.round(52 * scale);
+    const subtitleSize = Math.round(26 * scale);
+    const statLabelSize = Math.round(22 * scale);
+    const statValueSize = Math.round(36 * scale);
+    const statRowGap = Math.round(28 * scale);
+    const footerSize = Math.round(20 * scale);
+    const cardPad = Math.round(24 * scale);
+    const cardR = Math.round(20 * scale);
 
     const textPrimary = isDark ? '#ffffff' : '#0f172a';
     const textMuted = isDark ? 'rgba(255, 255, 255, 0.75)' : 'rgba(15, 23, 42, 0.7)';
@@ -1542,7 +1547,7 @@ function drawShareOverlay(canvas, details, pixelRatio, isDark) {
     const cardBg = isDark ? 'rgba(15, 23, 42, 0.82)' : 'rgba(255, 255, 255, 0.92)';
 
     // Accent bar next to title
-    const barW = 5;
+    const barW = Math.round(5 * scale);
     const barH = titleSize * 0.72;
     ctx.fillStyle = accent;
     ctx.beginPath();
@@ -1553,24 +1558,25 @@ function drawShareOverlay(canvas, details, pixelRatio, isDark) {
     ctx.fillStyle = textPrimary;
     ctx.font = `800 ${titleSize}px system-ui, -apple-system, sans-serif`;
     ctx.textBaseline = 'top';
-    ctx.fillText(title, pad + barW + 16, pad);
+    ctx.fillText(title, pad + barW + Math.round(16 * scale), pad);
 
     // Subtitle pill
-    const subY = pad + titleSize + 14;
+    const subY = pad + titleSize + Math.round(14 * scale);
     ctx.font = `600 ${subtitleSize}px system-ui, -apple-system, sans-serif`;
-    const subW = ctx.measureText(subtitle).width + 24;
-    const pillH = subtitleSize + 16;
+    const subW = ctx.measureText(subtitle).width + Math.round(24 * scale);
+    const pillH = subtitleSize + Math.round(16 * scale);
     ctx.fillStyle = isDark ? 'rgba(255, 255, 255, 0.12)' : 'rgba(14, 165, 233, 0.15)';
     ctx.beginPath();
-    ctx.roundRect(pad + barW + 16, subY, subW, pillH, pillH / 2);
+    ctx.roundRect(pad + barW + Math.round(16 * scale), subY, subW, pillH, pillH / 2);
     ctx.fill();
     ctx.fillStyle = accent;
-    ctx.fillText(subtitle, pad + barW + 28, subY + 8);
+    ctx.fillText(subtitle, pad + barW + Math.round(28 * scale), subY + Math.round(8 * scale));
 
-    // Stats card (rounded rect)
-    const cardTop = subY + pillH + 32;
+    // Stats card (rounded rect) – fixed dimensions; footer stays below
+    const cardTop = subY + pillH + Math.round(32 * scale);
     const cardW = Math.max(200, overlayEnd - pad * 2);
-    const rowHeight = statLabelSize + 8 + statValueSize + statRowGap;
+    const rowHeight = statLabelSize + Math.round(8 * scale) + statValueSize + statRowGap;
+    const footerY = h - pad - Math.round(40 * scale);
     const cardH = statRows.length * rowHeight - statRowGap + cardPad * 2;
     ctx.fillStyle = cardBg;
     if (isDark) {
@@ -1602,8 +1608,7 @@ function drawShareOverlay(canvas, details, pixelRatio, isDark) {
         rowY += statLabelSize + 8 + statValueSize + statRowGap;
     });
 
-    // Footer
-    const footerY = h - pad - 40;
+    // Footer (footerY already set above for maxCardH)
     ctx.fillStyle = textMuted;
     ctx.font = `500 ${footerSize}px system-ui, -apple-system, sans-serif`;
     ctx.fillText('generate yours @ www.mytravelrecap.com', pad, footerY);
@@ -1721,8 +1726,8 @@ async function shareCurrentView(mode) {
 
         storyCtx.drawImage(canvas, offsetX, offsetY, drawWidth, drawHeight);
 
-        const overlayScale = (STORY_WIDTH / canvas.width) * pixelRatio;
-        drawShareOverlay(storyCanvas, details, overlayScale, isDark);
+        // Use fixed scale 1 so overlay layout is identical on mobile and web (no overlap)
+        drawShareOverlay(storyCanvas, details, 1, isDark);
 
         const blob = await new Promise((resolve) => storyCanvas.toBlob(resolve, 'image/png'));
         if (!blob) {

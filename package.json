@@ -5,8 +5,9 @@
   "main": "script.js",
   "scripts": {
     "test": "jest",
-    "build:css": "node ./tailwindcss -i ./src/tailwind.css -o ./dist/tailwind.css --minify",
-    "watch:css": "node ./tailwindcss -i ./src/tailwind.css -o ./dist/tailwind.css --watch"
+    "build": "npm run build:css",
+    "build:css": "node ./tailwindcss -i ./src/tailwind.css -o ./tailwind.css --minify",
+    "watch:css": "node ./tailwindcss -i ./src/tailwind.css -o ./tailwind.css --watch"
   },
   "repository": {
     "type": "git",
@@ -14,7 +15,7 @@
   },
   "keywords": [],
   "author": "",
-  "license": "ISC",
+  "license": "MIT",
   "bugs": {
     "url": "https://github.com/imarinzone/travelrecap.my/issues"
   },
