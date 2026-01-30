@@ -1,0 +1,28 @@
+{
+  "semanticSegments": [
+    {"startTime":"2020-03-10T09:00:00Z","endTime":"2020-03-10T18:00:00Z","country":"United States","visit":{"hierarchyLevel":1,"probability":0.92,"topCandidate":{"placeId":"demo-nyc","semanticType":"LOCALITY","placeLocation":{"name":"New York City","latLng":"40.712800°, -74.006000°","address":"New York, NY, USA"}}}},
+    {"startTime":"2020-06-22T10:30:00Z","endTime":"2020-06-22T15:45:00Z","country":"France","visit":{"hierarchyLevel":1,"probability":0.87,"topCandidate":{"placeId":"demo-paris","semanticType":"LOCALITY","placeLocation":{"name":"Paris","latLng":"48.856600°, 2.352200°","address":"Paris, France"}}}},
+    {"startTime":"2020-07-01T07:00:00Z","endTime":"2020-07-01T11:00:00Z","activity":{"distanceMeters":185000,"topCandidate":{"type":"IN_PASSENGER_VEHICLE"}}},
+    {"startTime":"2020-10-12T12:00:00Z","endTime":"2020-10-12T15:00:00Z","activity":{"distanceMeters":12000,"topCandidate":{"type":"WALKING"}}},
+    {"startTime":"2021-03-10T09:00:00Z","endTime":"2021-03-10T18:00:00Z","country":"France","visit":{"hierarchyLevel":1,"probability":0.92,"topCandidate":{"placeId":"demo-paris","semanticType":"LOCALITY","placeLocation":{"name":"Paris","latLng":"48.856600°, 2.352200°","address":"Paris, France"}}}},
+    {"startTime":"2021-06-22T10:30:00Z","endTime":"2021-06-22T15:45:00Z","country":"Japan","visit":{"hierarchyLevel":1,"probability":0.87,"topCandidate":{"placeId":"demo-tokyo","semanticType":"LOCALITY","placeLocation":{"name":"Tokyo","latLng":"35.676200°, 139.650300°","address":"Tokyo, Japan"}}}},
+    {"startTime":"2021-07-01T07:00:00Z","endTime":"2021-07-01T11:00:00Z","activity":{"distanceMeters":12000,"topCandidate":{"type":"WALKING"}}},
+    {"startTime":"2021-10-12T12:00:00Z","endTime":"2021-10-12T15:00:00Z","activity":{"distanceMeters":920000,"topCandidate":{"type":"FLYING"}}},
+    {"startTime":"2022-03-10T09:00:00Z","endTime":"2022-03-10T18:00:00Z","country":"Japan","visit":{"hierarchyLevel":1,"probability":0.92,"topCandidate":{"placeId":"demo-tokyo","semanticType":"LOCALITY","placeLocation":{"name":"Tokyo","latLng":"35.676200°, 139.650300°","address":"Tokyo, Japan"}}}},
+    {"startTime":"2022-06-22T10:30:00Z","endTime":"2022-06-22T15:45:00Z","country":"India","visit":{"hierarchyLevel":1,"probability":0.87,"topCandidate":{"placeId":"demo-delhi","semanticType":"LOCALITY","placeLocation":{"name":"New Delhi","latLng":"28.613900°, 77.209000°","address":"New Delhi, India"}}}},
+    {"startTime":"2022-07-01T07:00:00Z","endTime":"2022-07-01T11:00:00Z","activity":{"distanceMeters":920000,"topCandidate":{"type":"FLYING"}}},
+    {"startTime":"2022-10-12T12:00:00Z","endTime":"2022-10-12T15:00:00Z","activity":{"distanceMeters":45000,"topCandidate":{"type":"IN_TRAIN"}}},
+    {"startTime":"2023-03-10T09:00:00Z","endTime":"2023-03-10T18:00:00Z","country":"India","visit":{"hierarchyLevel":1,"probability":0.92,"topCandidate":{"placeId":"demo-delhi","semanticType":"LOCALITY","placeLocation":{"name":"New Delhi","latLng":"28.613900°, 77.209000°","address":"New Delhi, India"}}}},
+    {"startTime":"2023-06-22T10:30:00Z","endTime":"2023-06-22T15:45:00Z","country":"United Kingdom","visit":{"hierarchyLevel":1,"probability":0.87,"topCandidate":{"placeId":"demo-london","semanticType":"LOCALITY","placeLocation":{"name":"London","latLng":"51.507400°, -0.127800°","address":"London, UK"}}}},
+    {"startTime":"2023-07-01T07:00:00Z","endTime":"2023-07-01T11:00:00Z","activity":{"distanceMeters":45000,"topCandidate":{"type":"IN_TRAIN"}}},
+    {"startTime":"2023-10-12T12:00:00Z","endTime":"2023-10-12T15:00:00Z","activity":{"distanceMeters":185000,"topCandidate":{"type":"IN_PASSENGER_VEHICLE"}}},
+    {"startTime":"2024-03-10T09:00:00Z","endTime":"2024-03-10T18:00:00Z","country":"United Kingdom","visit":{"hierarchyLevel":1,"probability":0.92,"topCandidate":{"placeId":"demo-london","semanticType":"LOCALITY","placeLocation":{"name":"London","latLng":"51.507400°, -0.127800°","address":"London, UK"}}}},
+    {"startTime":"2024-06-22T10:30:00Z","endTime":"2024-06-22T15:45:00Z","country":"United States","visit":{"hierarchyLevel":1,"probability":0.87,"topCandidate":{"placeId":"demo-nyc","semanticType":"LOCALITY","placeLocation":{"name":"New York City","latLng":"40.712800°, -74.006000°","address":"New York, NY, USA"}}}},
+    {"startTime":"2024-07-01T07:00:00Z","endTime":"2024-07-01T11:00:00Z","activity":{"distanceMeters":185000,"topCandidate":{"type":"IN_PASSENGER_VEHICLE"}}},
+    {"startTime":"2024-10-12T12:00:00Z","endTime":"2024-10-12T15:00:00Z","activity":{"distanceMeters":12000,"topCandidate":{"type":"WALKING"}}},
+    {"startTime":"2025-03-10T09:00:00Z","endTime":"2025-03-10T18:00:00Z","country":"United States","visit":{"hierarchyLevel":1,"probability":0.92,"topCandidate":{"placeId":"demo-nyc","semanticType":"LOCALITY","placeLocation":{"name":"New York City","latLng":"40.712800°, -74.006000°","address":"New York, NY, USA"}}}},
+    {"startTime":"2025-06-22T10:30:00Z","endTime":"2025-06-22T15:45:00Z","country":"France","visit":{"hierarchyLevel":1,"probability":0.87,"topCandidate":{"placeId":"demo-paris","semanticType":"LOCALITY","placeLocation":{"name":"Paris","latLng":"48.856600°, 2.352200°","address":"Paris, France"}}}},
+    {"startTime":"2025-07-01T07:00:00Z","endTime":"2025-07-01T11:00:00Z","activity":{"distanceMeters":920000,"topCandidate":{"type":"FLYING"}}},
+    {"startTime":"2025-10-12T12:00:00Z","endTime":"2025-10-12T15:00:00Z","activity":{"distanceMeters":45000,"topCandidate":{"type":"IN_TRAIN"}}}
+  ]
+}

@@ -440,85 +440,6 @@ function handleFileUpload(event) {
     reader.readAsText(file);
 }
 
-function buildDemoData() {
-    const places = [
-        { id: 'demo-nyc', name: 'New York City', lat: 40.7128, lng: -74.0060, country: 'United States' },
-        { id: 'demo-paris', name: 'Paris', lat: 48.8566, lng: 2.3522, country: 'France' },
-        { id: 'demo-tokyo', name: 'Tokyo', lat: 35.6762, lng: 139.6503, country: 'Japan' },
-        { id: 'demo-delhi', name: 'New Delhi', lat: 28.6139, lng: 77.2090, country: 'India' }
-    ];
-
-    const activities = [
-        { type: 'IN_PASSENGER_VEHICLE', distanceMeters: 185000 },
-        { type: 'WALKING', distanceMeters: 12000 },
-        { type: 'FLYING', distanceMeters: 920000 }
-    ];
-
-    const semanticSegments = [];
-    const years = [2019, 2020, 2021, 2022, 2023, 2024];
-
-    years.forEach((year, index) => {
-        const primaryPlace = places[index % places.length];
-        const secondaryPlace = places[(index + 1) % places.length];
-        const activityOne = activities[index % activities.length];
-        const activityTwo = activities[(index + 1) % activities.length];
-
-        const toLatLng = (lat, lng) => `${lat.toFixed(6)}°, ${lng.toFixed(6)}°`;
-
-        semanticSegments.push({
-            startTime: `${year}-03-10T09:00:00Z`,
-            endTime: `${year}-03-10T18:00:00Z`,
-            country: primaryPlace.country,
-            visit: {
-                topCandidate: {
-                    placeLocation: {
-                        name: primaryPlace.name,
-                        latLng: toLatLng(primaryPlace.lat, primaryPlace.lng)
-                    },
-                    placeId: primaryPlace.id
-                },
-                probability: 0.92
-            }
-        });
-
-        semanticSegments.push({
-            startTime: `${year}-06-22T10:30:00Z`,
-            endTime: `${year}-06-22T15:45:00Z`,
-            country: secondaryPlace.country,
-            visit: {
-                topCandidate: {
-                    placeLocation: {
-                        name: secondaryPlace.name,
-                        latLng: toLatLng(secondaryPlace.lat, secondaryPlace.lng)
-                    },
-                    placeId: secondaryPlace.id
-                },
-                probability: 0.87
-            }
-        });
-
-        semanticSegments.push({
-            startTime: `${year}-07-01T07:00:00Z`,
-            endTime: `${year}-07-01T11:00:00Z`,
-            activity: {
-                distanceMeters: activityOne.distanceMeters,
-                topCandidate: { type: activityOne.type }
-            }
-        });
-
-        semanticSegments.push({
-            startTime: `${year}-10-12T12:00:00Z`,
-            endTime: `${year}-10-12T15:00:00Z`,
-            activity: {
-                distanceMeters: activityTwo.distanceMeters,
-                topCandidate: { type: activityTwo.type }
-            }
-        });
-    });
-
-    return { semanticSegments };
-}
-
 function loadDemoData() {
     const statusSpan = document.getElementById('upload-status');
     if (statusSpan) {
@@ -527,10 +448,13 @@ function loadDemoData() {
     }
 
     showLoadingScreen('Loading demo experience…');
-    setTimeout(() => {
+
+    (async () => {
         try {
-            const demoData = buildDemoData();
-            processAndRenderData(demoData);
+            const response = await fetch('data/demo.json');
+            if (!response.ok) throw new Error(`HTTP ${response.status}`);
+            const json = await response.json();
+            processAndRenderData(json);
             if (statusSpan) {
                 statusSpan.textContent = 'Demo loaded!';
                 statusSpan.className = 'text-sm font-medium text-green-600';
@@ -544,7 +468,7 @@ function loadDemoData() {
         } finally {
             hideLoadingScreen();
         }
-    }, 50);
+    })();
 }
 
 // Apply Worker result (allSegments, allLocations, years, initialStats) and update UI – same as processAndRenderData but without parse/process
@@ -1629,6 +1553,7 @@ async function shareCurrentView(mode) {
     closeShareDialog();
     showLoadingScreen('Preparing your share image…');
 
+    let origGetContext;
     try {
         const mapOverlay = document.getElementById('map-overlay');
         const isMapOpen = mapOverlay && !mapOverlay.classList.contains('hidden');
@@ -1667,6 +1592,17 @@ async function shareCurrentView(mode) {
                 }
             } catch (_) { /* ignore */ }
         });
+
+        // Patch getContext so html-to-image's internal canvases use willReadFrequently (avoids console warning)
+        origGetContext = HTMLCanvasElement.prototype.getContext;
+        HTMLCanvasElement.prototype.getContext = function (contextId, options) {
+            if (contextId === '2d') {
+                options = options && typeof options === 'object'
+                    ? { ...options, willReadFrequently: true }
+                    : { willReadFrequently: true };
+            }
+            return origGetContext.call(this, contextId, options);
+        };
 
         try {
             const canvas = await htmlToImage.toCanvas(node, {
@@ -1760,6 +1696,9 @@ async function shareCurrentView(mode) {
         timelineUtils.Logger.error('Error sharing image:', error);
         showShareToast('Could not share. Please try again.', 'error');
     } finally {
+        if (origGetContext) {
+            HTMLCanvasElement.prototype.getContext = origGetContext;
+        }
         hideLoadingScreen();
     }
 }
