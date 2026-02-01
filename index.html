@@ -1292,6 +1292,14 @@
         #map-container-wrapper.share-capture .leaflet-control-attribution {
             display: none !important;
         }
+
+        /* Equator/tropics: hidden on globe; shown only when capturing share image */
+        .globe-parallels-share-only {
+            visibility: hidden;
+        }
+        #globe-container.share-capture .globe-parallels-share-only {
+            visibility: visible;
+        }
         
         /* Globe theme styles */
         .globe-svg {

@@ -1451,7 +1451,18 @@ function closeShareDialog() {
     if (dialog) dialog.classList.add('hidden');
 }
 
-function buildShareDetails(mode) {
+const EARTH_CIRCUMFERENCE_KM = 40075;
+
+/** Same stat as Travel Summary "Trips Around Earth" – single source of truth. */
+function getTripsAroundEarth(stats) {
+    if (!stats || stats.totalDistanceMeters <= 0) return { value: 0, display: '0' };
+    const distanceKm = stats.totalDistanceMeters / 1000;
+    const value = distanceKm / EARTH_CIRCUMFERENCE_KM;
+    const display = value.toFixed(1);
+    return { value, display };
+}
+
+function buildShareDetails(mode, useGlobeBackground = false) {
     const useOverall = mode === 'overall';
     const stats = useOverall ? lastAllTimeStats : lastYearStats;
     const advanced = useOverall ? lastAllTimeAdvancedStats : lastAdvancedStats;
@@ -1467,6 +1478,14 @@ function buildShareDetails(mode) {
         { label: 'Countries', value: countries },
         { label: 'Unique places', value: uniquePlaces }
     ];
+
+    let tripsAroundEarth = null;
+    // Latitude line on share image (globe only): always equator (0°) so it appears in the middle of the globe
+    let shareParallelLatitude = null;
+    if (stats.totalDistanceMeters > 0) {
+        tripsAroundEarth = getTripsAroundEarth(stats);
+        if (useGlobeBackground) shareParallelLatitude = 0;
+    }
 
     if (advanced && advanced.records) {
         const driveKm = (advanced.records.longestDrive / 1000).toFixed(1);
@@ -1484,14 +1503,14 @@ function buildShareDetails(mode) {
         }
     }
 
-    return { title: 'My Travel Recap', subtitle, statRows };
+    return { title: 'My Travel Recap', subtitle, statRows, tripsAroundEarth: tripsAroundEarth ? tripsAroundEarth.value : null, shareParallelLatitude };
 }
 
 // Fixed layout for share image (1080×1920) so mobile and web look identical
 const SHARE_IMAGE_WIDTH = 1080;
 const SHARE_IMAGE_HEIGHT = 1920;
 
-function drawShareOverlay(canvas, details, _pixelRatio, isDark) {
+function drawShareOverlay(canvas, details, _pixelRatio, isDark, globeCenter) {
     const ctx = canvas.getContext('2d', { willReadFrequently: true });
     if (!ctx) return;
 
@@ -1500,14 +1519,14 @@ function drawShareOverlay(canvas, details, _pixelRatio, isDark) {
     const h = canvas.height;
     // Fixed scale so layout is identical on all devices (no overlap on mobile)
     const scale = Math.min(w / SHARE_IMAGE_WIDTH, h / SHARE_IMAGE_HEIGHT, 1);
-    const pad = Math.round(56 * scale);
+    const pad = Math.round(80 * scale);
     const overlayEnd = Math.round(w * 0.52);
-    const titleSize = Math.round(52 * scale);
-    const subtitleSize = Math.round(26 * scale);
-    const statLabelSize = Math.round(22 * scale);
-    const statValueSize = Math.round(36 * scale);
-    const statRowGap = Math.round(28 * scale);
-    const footerSize = Math.round(20 * scale);
+    const titleSize = Math.round(100 * scale);
+    const subtitleSize = Math.round(60 * scale);
+    const statLabelSize = Math.round(30 * scale);
+    const statValueSize = Math.round(50 * scale);
+    const statRowGap = Math.round(20 * scale);
+    const footerSize = Math.round(30 * scale);
     const cardPad = Math.round(24 * scale);
     const cardR = Math.round(20 * scale);
 
@@ -1542,12 +1561,13 @@ function drawShareOverlay(canvas, details, _pixelRatio, isDark) {
     ctx.fillStyle = accent;
     ctx.fillText(subtitle, pad + barW + Math.round(28 * scale), subY + Math.round(8 * scale));
 
-    // Stats card (rounded rect) – fixed dimensions; footer stays below
-    const cardTop = subY + pillH + Math.round(32 * scale);
+    // Stats card (rounded rect) – minimal height to fit content
+    const cardTop = subY + pillH + Math.round(24 * scale);
     const cardW = Math.max(200, overlayEnd - pad * 2);
-    const rowHeight = statLabelSize + Math.round(8 * scale) + statValueSize + statRowGap;
+    const rowHeight = statLabelSize + Math.round(6 * scale) + statValueSize + statRowGap;
     const footerY = h - pad - Math.round(40 * scale);
-    const cardH = statRows.length * rowHeight - statRowGap + cardPad * 2;
+    const computedCardH = statRows.length * rowHeight - statRowGap + cardPad * 2;
+    const cardH = computedCardH;
     ctx.fillStyle = cardBg;
     if (isDark) {
         ctx.shadowColor = 'rgba(0, 0, 0, 0.4)';
@@ -1574,9 +1594,31 @@ function drawShareOverlay(canvas, details, _pixelRatio, isDark) {
         ctx.fillText(row.label, pad + cardPad, rowY);
         ctx.font = `700 ${statValueSize}px system-ui, -apple-system, sans-serif`;
         ctx.fillStyle = accent;
-        ctx.fillText(row.value, pad + cardPad, rowY + statLabelSize + 8);
-        rowY += statLabelSize + 8 + statValueSize + statRowGap;
+        const labelToValueGap = Math.round(6 * scale);
+        ctx.fillText(row.value, pad + cardPad, rowY + statLabelSize + labelToValueGap);
+        rowY += statLabelSize + labelToValueGap + statValueSize + statRowGap;
     });
+
+    // "X.X Trips Around Earth" right-aligned: globe = just above equator; map = middle right
+    const tripsAroundEarthValue = details.tripsAroundEarth != null ? details.tripsAroundEarth.toFixed(1) : null;
+    if (tripsAroundEarthValue != null) {
+        const tripsText = `${tripsAroundEarthValue} Trips Around Earth`;
+        const tripsFontSize = Math.round(28 * scale);
+        ctx.font = `600 ${tripsFontSize}px system-ui, -apple-system, sans-serif`;
+        const tripsColor = isDark ? 'rgba(255, 248, 240, 0.92)' : 'rgba(30, 58, 95, 0.88)';
+        ctx.fillStyle = tripsColor;
+        ctx.textAlign = 'right';
+        if (globeCenter) {
+            ctx.textBaseline = 'bottom';
+            const gapAboveEquator = Math.round(8 * scale);
+            ctx.fillText(tripsText, w - pad, globeCenter.y - gapAboveEquator);
+        } else {
+            ctx.textBaseline = 'middle';
+            ctx.fillText(tripsText, w - pad, h / 2);
+        }
+        ctx.textAlign = 'left';
+        ctx.textBaseline = 'top';
+    }
 
     // Footer (footerY already set above for maxCardH)
     ctx.fillStyle = textMuted;
@@ -1590,7 +1632,13 @@ async function shareCurrentView(mode) {
         return;
     }
 
-    const details = buildShareDetails(mode);
+    const mapOverlay = document.getElementById('map-overlay');
+    const isMapOpen = mapOverlay && !mapOverlay.classList.contains('hidden');
+    const mapContainer = document.getElementById('map-container-wrapper');
+    const globeContainer = document.getElementById('globe-container');
+    const useMapBackground = isMapOpen && mapContainer && map;
+
+    const details = buildShareDetails(mode, !useMapBackground);
     if (!details) {
         showShareToast('No share details available yet.', 'error');
         return;
@@ -1601,12 +1649,6 @@ async function shareCurrentView(mode) {
 
     let origGetContext;
     try {
-        const mapOverlay = document.getElementById('map-overlay');
-        const isMapOpen = mapOverlay && !mapOverlay.classList.contains('hidden');
-        const mapContainer = document.getElementById('map-container-wrapper');
-        const globeContainer = document.getElementById('globe-container');
-
-        const useMapBackground = isMapOpen && mapContainer && map;
         const node = useMapBackground ? mapContainer : globeContainer;
 
         if (!node) {
@@ -1653,6 +1695,13 @@ async function shareCurrentView(mode) {
         // Hide map zoom (+/-) and Leaflet attribution in the captured share image
         if (useMapBackground && mapContainer) {
             mapContainer.classList.add('share-capture');
+        }
+        // Show latitude line on globe only in the captured share image; use dynamic latitude from travel
+        if (!useMapBackground && globeContainer) {
+            globeContainer.classList.add('share-capture');
+            if (globe && typeof globe.setShareParallelLatitude === 'function') {
+                globe.setShareParallelLatitude(details.shareParallelLatitude ?? 0);
+            }
         }
 
         try {
@@ -1713,8 +1762,9 @@ async function shareCurrentView(mode) {
 
         storyCtx.drawImage(canvas, offsetX, offsetY, drawWidth, drawHeight);
 
-        // Use fixed scale 1 so overlay layout is identical on mobile and web (no overlap)
-        drawShareOverlay(storyCanvas, details, 1, isDark);
+        // Equator center for "Trips Around Earth" text (globe share only)
+        const globeCenter = !useMapBackground ? { x: offsetX + drawWidth / 2, y: offsetY + drawHeight / 2 } : null;
+        drawShareOverlay(storyCanvas, details, 1, isDark, globeCenter);
 
         const blob = await new Promise((resolve) => storyCanvas.toBlob(resolve, 'image/png'));
         if (!blob) {
@@ -1739,6 +1789,12 @@ async function shareCurrentView(mode) {
         } finally {
             if (useMapBackground && mapContainer) {
                 mapContainer.classList.remove('share-capture');
+            }
+            if (!useMapBackground && globeContainer) {
+                globeContainer.classList.remove('share-capture');
+                if (globe && typeof globe.setShareParallelLatitude === 'function') {
+                    globe.setShareParallelLatitude(0);
+                }
             }
             externalStyles.forEach((link) => document.head.appendChild(link));
         }
@@ -1803,15 +1859,10 @@ function renderTravelSummary(stats) {
     const worldTripsLabel = document.getElementById('world-percentage-label');
     const description = document.getElementById('travel-description');
 
-    // Calculate trips around the world based on Earth's circumference
-    const EARTH_CIRCUMFERENCE_KM = 40075; // Approximate Earth circumference in km
+    const { value: tripsValue, display: tripsAroundWorld } = getTripsAroundEarth(stats);
     const distanceKm = stats.totalDistanceMeters / 1000;
 
-    const tripsAroundWorld = distanceKm > 0
-        ? (distanceKm / EARTH_CIRCUMFERENCE_KM).toFixed(1)
-        : '0';
-
-    // Display as "X.X" trips
+    // Display as "X.X" trips (same stat as share card "Trips Around Earth")
     worldTripsEl.textContent = tripsAroundWorld;
     if (worldTripsLabel) {
         const tripWord = parseFloat(tripsAroundWorld) === 1 ? 'Trip' : 'Trips';

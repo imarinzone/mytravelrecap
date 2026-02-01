@@ -31,7 +31,8 @@ class Globe {
                 country: '#334155',
                 countryStroke: '#1e293b',
                 visited: '#38bdf8',
-                glow: 'rgba(56,189,248,0.2)'
+                glow: 'rgba(56,189,248,0.2)',
+                parallel: 'rgba(148,163,184,0.5)'
             },
             light: {
                 ocean: '#60a5fa',          // Blue ocean
@@ -39,7 +40,8 @@ class Globe {
                 country: '#4ade80',         // Green land
                 countryStroke: '#22c55e',   // Darker green stroke
                 visited: '#f97316',         // Orange for visited (stands out on green)
-                glow: 'rgba(59,130,246,0.15)'
+                glow: 'rgba(59,130,246,0.15)',
+                parallel: 'rgba(59,130,246,0.45)'
             }
         };
 
@@ -76,6 +78,15 @@ class Globe {
 
         this.initialScale = this.projection.scale();
         this.path = d3.geoPath().projection(this.projection);
+
+        // Latitude parallel: equator only (shown on share image via CSS .share-capture)
+        this.parallelsData = [{
+            type: 'Feature',
+            geometry: {
+                type: 'LineString',
+                coordinates: d3.range(-180, 181, 2).map(lon => [lon, 0])
+            }
+        }];
 
         // Glow filter
         const defs = this.svg.append("defs");
@@ -114,6 +125,18 @@ class Globe {
                 })
                 .attr("stroke", theme.countryStroke)
                 .attr("stroke-width", 0.3);
+
+            // Latitude line (dotted) — in front of land; visible only when capturing share image (CSS .share-capture)
+            const parallelsGroup = this.svg.append("g").attr("class", "globe-parallels globe-parallels-share-only");
+            this.parallels = parallelsGroup.selectAll("path")
+                .data(this.parallelsData)
+                .enter()
+                .append("path")
+                .attr("d", this.path)
+                .attr("fill", "none")
+                .attr("stroke", theme.parallel)
+                .attr("stroke-width", 0.8)
+                .attr("stroke-dasharray", "3,3");
 
             this.startRotation();
             this.setupDrag();
@@ -155,6 +178,10 @@ class Globe {
                 })
                 .attr("stroke", theme.countryStroke);
         }
+        // Update equator/tropics lines
+        if (this.parallels) {
+            this.parallels.transition().duration(300).attr("stroke", theme.parallel);
+        }
     }
 
     startRotation() {
@@ -168,6 +195,7 @@ class Globe {
             this.projection.rotate([-baseRotation - scrollImpact, rotate[1]]);
             if (frameCount % 2 === 0) {
                 this.countries.attr("d", this.path);
+                if (this.parallels) this.parallels.attr("d", this.path);
             }
             frameCount++;
             this.updateContainerTransform();
@@ -190,6 +218,7 @@ class Globe {
         if (!this.projection || !this.countries) return;
         this.projection.rotate(rotation);
         this.countries.attr("d", this.path);
+        if (this.parallels) this.parallels.attr("d", this.path);
         this.updateContainerTransform();
     }
 
@@ -209,10 +238,12 @@ class Globe {
                 dragFrameCount++;
                 if (dragFrameCount % 2 === 0) {
                     globe.countries.attr("d", globe.path);
+                    if (globe.parallels) globe.parallels.attr("d", globe.path);
                 }
             })
             .on("end", () => {
                 globe.countries.attr("d", globe.path);
+                if (globe.parallels) globe.parallels.attr("d", globe.path);
                 if (globe.autoRotateEnabled === false) return;
                 const currentRotation = globe.projection.rotate()[0];
                 let frameCount = 0;
@@ -223,6 +254,7 @@ class Globe {
                     frameCount++;
                     if (frameCount % 2 === 0) {
                         globe.countries.attr("d", globe.path);
+                        if (globe.parallels) globe.parallels.attr("d", globe.path);
                     }
                     globe.updateContainerTransform();
                 });
@@ -256,6 +288,16 @@ class Globe {
             const scale = 1 + Math.sin(p * Math.PI) * 0.1; // Pulsing scale
 
             this.container.style.transform = `translate3d(${xOffset}px, ${yOffset}px, 0) scale(${scale})`;
+        }
+    }
+
+    /** Set the latitude of the share-only parallel line (e.g. average travel latitude). Call with 0 to reset to equator. */
+    setShareParallelLatitude(lat) {
+        const latitude = Math.max(-90, Math.min(90, Number(lat) || 0));
+        if (!this.parallelsData || !this.parallelsData[0]) return;
+        this.parallelsData[0].geometry.coordinates = d3.range(-180, 181, 2).map(lon => [lon, latitude]);
+        if (this.parallels) {
+            this.parallels.data(this.parallelsData).attr("d", this.path);
         }
     }
 }
