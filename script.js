@@ -17,6 +17,11 @@ let lastAllTimeStats = null;
 let lastAdvancedStats = null;
 let lastAllTimeAdvancedStats = null;
 
+// Stats cache: avoid recomputing on every render/year switch
+let cachedAllTimeStats = null;
+let cachedAllTimeAdvancedStats = null;
+let statsCacheByYear = {}; // key: String(year) or 'all'; value: { stats, advancedStats, statsSegments }
+
 // CartoDB Tile Layer URLs
 const tileLayers = {
     light: L.tileLayer('https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png', {
@@ -36,14 +41,23 @@ const tileLayers = {
 // Cached country GeoJSON for passing to Worker (offline country lookup there)
 let countryGeoJSONCache = null;
 
-// Load country boundaries GeoJSON for offline country lookup
+// Load country boundaries GeoJSON for offline country lookup (IndexedDB cache, then fetch)
 async function loadCountryGeoJSON() {
     if (!window.timelineUtils || typeof timelineUtils.setCountryGeoJSON !== 'function') {
         return;
     }
 
     try {
-        const response = await fetch('data/countries.geojson');
+        if (window.geodataCache && typeof geodataCache.get === 'function') {
+            const cached = await geodataCache.get('countries_geojson_v1');
+            if (cached) {
+                countryGeoJSONCache = cached;
+                timelineUtils.setCountryGeoJSON(cached);
+                return;
+            }
+        }
+
+        const response = await fetch(getConfig('GEOJSON_COUNTRIES_URL', 'data/countries.geojson'));
         if (!response.ok) {
             timelineUtils.Logger.warn('countries.geojson not found or failed to load');
             return;
@@ -51,17 +65,23 @@ async function loadCountryGeoJSON() {
         const geojson = await response.json();
         countryGeoJSONCache = geojson;
         timelineUtils.setCountryGeoJSON(geojson);
+
+        if (window.geodataCache && typeof geodataCache.set === 'function') {
+            geodataCache.set('countries_geojson_v1', geojson).catch(function () {});
+        }
     } catch (error) {
         timelineUtils.Logger.warn('Error loading countries.geojson for offline geocoding', error);
     }
 }
 
-// Use clustering when location count exceeds this (avoids 5k–50k DOM nodes)
-const MARKER_CLUSTER_THRESHOLD = 500;
-// Use heatmap (single canvas) when count exceeds this – faster than many markers/clusters
-const HEATMAP_THRESHOLD = 500;
-// Batch size for adding markers per frame (keeps UI responsive)
-const MARKER_BATCH_SIZE = 200;
+// Config from .env (via config.js). Fallbacks for when config.js not generated.
+const APP_CONFIG = (typeof window !== 'undefined' && window.__APP_CONFIG__) || {};
+function getConfig(key, fallback) {
+    return APP_CONFIG[key] !== undefined && APP_CONFIG[key] !== null ? APP_CONFIG[key] : fallback;
+}
+const MARKER_CLUSTER_THRESHOLD = getConfig('MARKER_CLUSTER_THRESHOLD', 500);
+const HEATMAP_THRESHOLD = getConfig('HEATMAP_THRESHOLD', 500);
+const MARKER_BATCH_SIZE = getConfig('MARKER_BATCH_SIZE', 200);
 
 // Initialize map
 function initMap() {
@@ -173,10 +193,16 @@ function initializeYearFilter(availableYears) {
     if (availableYears.length > 0 && (!selectedYear || !availableYears.includes(parseInt(selectedYear)))) {
         selectedYear = availableYears[availableYears.length - 1]; // Most recent (last in ascending order)
         localStorage.setItem('mapYear', selectedYear);
-        updateTimelineSelection();
-        
         // Update title to reflect year
         document.getElementById('header-title').textContent = `Your ${selectedYear} Recap`;
+    }
+
+    // Always sync timeline selection (active class + knob position) after building the DOM,
+    // so the correct year is shown with the right colour when the map opens for the first time.
+    if (availableYears.length > 0) {
+        requestAnimationFrame(() => {
+            updateTimelineSelection();
+        });
     }
 
     // Center-scroll: when user scrolls the year bar, select the year that ends up in the center
@@ -497,7 +523,7 @@ function loadDemoData() {
 
     (async () => {
         try {
-            const response = await fetch('data/demo.json');
+            const response = await fetch(getConfig('DATA_DEMO_URL', 'data/demo.json'));
             if (!response.ok) throw new Error(`HTTP ${response.status}`);
             const json = await response.json();
             processAndRenderData(json);
@@ -524,6 +550,11 @@ function applyProcessedDataFromWorker(payload) {
     allLocations = locs;
     mapYears = [...years];
     isDataLoaded = true;
+
+    // Populate all-time stats cache and clear per-year cache
+    cachedAllTimeStats = timelineUtils.calculateStats(allSegments);
+    cachedAllTimeAdvancedStats = timelineUtils.calculateAdvancedStats(allSegments);
+    statsCacheByYear = {};
 
     timelineUtils.Logger.info(`Parsed ${allLocations.length} locations`);
 
@@ -576,10 +607,14 @@ function processAndRenderData(json) {
     mapYears = [...years];
     isDataLoaded = true;
 
+    // Populate all-time stats cache and clear per-year cache
+    const initialStats = timelineUtils.calculateStats(allSegments);
+    cachedAllTimeStats = initialStats;
+    cachedAllTimeAdvancedStats = timelineUtils.calculateAdvancedStats(allSegments);
+    statsCacheByYear = {};
+
     timelineUtils.Logger.info(`Parsed ${allLocations.length} locations`);
     timelineUtils.Logger.timeEnd('Data Processing');
-
-    const initialStats = timelineUtils.calculateStats(allSegments);
 
     hideBackgroundGlobe();
     const globeContainer = document.getElementById('globe-container');
@@ -623,26 +658,36 @@ function renderDashboard() {
     // 1. Render Map
     renderMarkers();
 
-    // 2. Filter data for statistics
+    // 2. Resolve stats from cache or compute
     const currentYear = selectedYear ? parseInt(selectedYear) : null;
-    let statsSegments = allSegments;
+    const cacheKey = currentYear === null ? 'all' : String(currentYear);
+    let stats, advancedStats, statsSegments;
+
+    if (statsCacheByYear[cacheKey]) {
+        const cached = statsCacheByYear[cacheKey];
+        stats = cached.stats;
+        advancedStats = cached.advancedStats;
+        statsSegments = cached.statsSegments;
+    } else {
+        statsSegments = currentYear
+            ? allSegments.filter(s => {
+                if (!s.startTime) return false;
+                return new Date(s.startTime).getFullYear() === currentYear;
+            })
+            : allSegments;
+        stats = timelineUtils.calculateStats(statsSegments);
+        advancedStats = timelineUtils.calculateAdvancedStats(statsSegments);
+        statsCacheByYear[cacheKey] = { stats, advancedStats, statsSegments };
+    }
 
     if (currentYear) {
-        statsSegments = allSegments.filter(s => {
-            if (!s.startTime) return false;
-            return new Date(s.startTime).getFullYear() === currentYear;
-        });
         document.getElementById('header-title').textContent = `Your ${currentYear} Recap`;
     } else {
         document.getElementById('header-title').textContent = `Your Travel Recap`;
     }
 
-    // 3. Calculate Stats using Utility
-    const stats = timelineUtils.calculateStats(statsSegments);
-
-    const allTimeStats = timelineUtils.calculateStats(allSegments);
-    const advancedStats = timelineUtils.calculateAdvancedStats(statsSegments);
-    const allTimeAdvancedStats = timelineUtils.calculateAdvancedStats(allSegments);
+    const allTimeStats = cachedAllTimeStats !== null ? cachedAllTimeStats : timelineUtils.calculateStats(allSegments);
+    const allTimeAdvancedStats = cachedAllTimeAdvancedStats !== null ? cachedAllTimeAdvancedStats : timelineUtils.calculateAdvancedStats(allSegments);
 
     lastYearStats = stats;
     lastAllTimeStats = allTimeStats;
@@ -1506,9 +1551,9 @@ function buildShareDetails(mode, useGlobeBackground = false) {
     return { title: 'My Travel Recap', subtitle, statRows, tripsAroundEarth: tripsAroundEarth ? tripsAroundEarth.value : null, shareParallelLatitude };
 }
 
-// Fixed layout for share image (1080×1920) so mobile and web look identical
-const SHARE_IMAGE_WIDTH = 1080;
-const SHARE_IMAGE_HEIGHT = 1920;
+// Fixed layout for share image so mobile and web look identical (from config)
+const SHARE_IMAGE_WIDTH = getConfig('SHARE_IMAGE_WIDTH', 1080);
+const SHARE_IMAGE_HEIGHT = getConfig('SHARE_IMAGE_HEIGHT', 1920);
 
 function drawShareOverlay(canvas, details, _pixelRatio, isDark, globeCenter) {
     const ctx = canvas.getContext('2d', { willReadFrequently: true });

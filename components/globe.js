@@ -1,9 +1,21 @@
-// Single fetch/cache for world GeoJSON so background and main globe share one load
+// Single fetch/cache for world GeoJSON so background and main globe share one load (IndexedDB cache, then fetch)
 const WORLD_GEOJSON_URL = "https://raw.githubusercontent.com/holtzy/D3-graph-gallery/master/DATA/world.geojson";
 let worldGeoJSONPromise = null;
 function getWorldGeoJSON() {
     if (!worldGeoJSONPromise) {
-        worldGeoJSONPromise = d3.json(WORLD_GEOJSON_URL);
+        worldGeoJSONPromise = (async function () {
+            if (typeof geodataCache !== 'undefined' && typeof geodataCache.get === 'function') {
+                try {
+                    const cached = await geodataCache.get('world_geojson_v1');
+                    if (cached) return cached;
+                } catch (e) { /* fall through to fetch */ }
+            }
+            const data = await d3.json(WORLD_GEOJSON_URL);
+            if (typeof geodataCache !== 'undefined' && typeof geodataCache.set === 'function') {
+                geodataCache.set('world_geojson_v1', data).catch(function () {});
+            }
+            return data;
+        })();
     }
     return worldGeoJSONPromise;
 }

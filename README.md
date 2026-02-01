@@ -22,6 +22,8 @@ A single-page static site that turns your **Google Takeout timeline** into a typ
 - [Features](#-features)
 - [Quick start](#-quick-start)
 - [Usage](#-usage)
+- [Caching (local storage)](#caching-local-storage)
+- [Configuration](#configuration)
 - [Project structure](#-project-structure)
 - [Development](#-development)
 - [Deployment](#-deployment)
@@ -76,6 +78,26 @@ Open **http://localhost:3000** (or the port shown). No `npm install` or build st
 
 Country names are resolved offline using `data/countries.geojson` (point-in-polygon, no APIs). The file is committed; to update it, replace it with a [world countries GeoJSON](https://github.com/datasets/geo-countries) and save as `data/countries.geojson`.
 
+### Caching (local storage)
+
+- **IndexedDB** (non-PII): Country boundaries GeoJSON and world globe GeoJSON are cached in the browser so repeat visits skip re-downloading. Stored under the database `mytravelrecap_geodata`. If IndexedDB is unavailable (e.g. private browsing), the app falls back to fetching from the network.
+- **localStorage** (small prefs): Theme (light/dark), selected map year, and map style are stored so your choices persist across sessions. No timeline or location data is persisted.
+
+### Configuration
+
+App behaviour is controlled by **`config.js`** (loaded before `script.js`). Edit it to change:
+
+| Key | Default | Description |
+|-----|---------|-------------|
+| `MARKER_CLUSTER_THRESHOLD` | 500 | Use marker clustering above this many map locations |
+| `HEATMAP_THRESHOLD` | 500 | Use heatmap layer above this many locations (single canvas) |
+| `MARKER_BATCH_SIZE` | 200 | Markers added per frame when batching (keeps UI responsive) |
+| `SHARE_IMAGE_WIDTH` / `SHARE_IMAGE_HEIGHT` | 1080 × 1920 | Share image dimensions (fixed layout) |
+| `DATA_DEMO_URL` | `data/demo.json` | URL for demo data (e.g. “Try demo”) |
+| `GEOJSON_COUNTRIES_URL` | `data/countries.geojson` | URL for country boundaries GeoJSON |
+
+just edit `config.js` and refresh.
+
 ---
 
 ## Project structure
@@ -83,8 +105,10 @@ Country names are resolved offline using `data/countries.geojson` (point-in-poly
 ```
 mytravelrecap/
 ├── index.html           # Single-page app
+├── config.js            # App config (map thresholds, share image size, data URLs)
 ├── script.js            # UI, map, and DOM logic
 ├── timeline-utils.js    # Parsing, stats, geo helpers
+├── geodata-cache.js     # IndexedDB cache for GeoJSON (countries, world globe)
 ├── tailwind.css         # Built Tailwind v4 CSS (committed; one-command: npm run build)
 ├── src/tailwind.css     # Tailwind v4 source (@import "tailwindcss", @source, keyframes)
 ├── vercel.json          # Headers (no build step)
@@ -126,7 +150,8 @@ Push to your connected repo; no extra config needed.
 
 ## Privacy & design
 
-- **Client-only**: Your `GoogleTimeline.json` is parsed in the browser. Nothing is uploaded.
+- **Client-only**: Your timeline file is parsed in the browser. Nothing is uploaded.
+- **Local storage**: Only non-PII is persisted: GeoJSON reference data (IndexedDB) and small preferences like theme and map year (localStorage). Your timeline, segments, and visited locations are never written to disk; they live in memory for the session only.
 - **Storytelling UI**: Large type, vertical scroll, fade-in sections, SVG backgrounds, and dark mode support.
 
 ---
