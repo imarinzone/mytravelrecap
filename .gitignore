@@ -150,3 +150,5 @@ data/*
 
 # npm pack / versioned artifact (stray file)
 mytravelrecap@1.0.0
+
+config.js

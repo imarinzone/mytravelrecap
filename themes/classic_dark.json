@@ -1,0 +1,15 @@
+{
+    "name": "Classic Dark",
+    "description": "Original dark globe theme - deep navy ocean with cool blue accents",
+    "bg": "#111827",
+    "text": "#38bdf8",
+    "gradient_color": "#111827",
+    "water": "#111827",
+    "parks": "#334155",
+    "road_motorway": "#38bdf8",
+    "road_primary": "#334155",
+    "road_secondary": "#1e293b",
+    "road_tertiary": "#1e293b",
+    "road_residential": "#1e293b",
+    "road_default": "#334155"
+}

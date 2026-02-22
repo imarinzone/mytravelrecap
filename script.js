@@ -73,7 +73,7 @@ async function loadCountryGeoJSON() {
         timelineUtils.setCountryGeoJSON(geojson);
 
         if (window.geodataCache && typeof geodataCache.set === 'function') {
-            geodataCache.set('countries_geojson_v1', geojson).catch(function () {});
+            geodataCache.set('countries_geojson_v1', geojson).catch(function () { });
         }
     } catch (error) {
         timelineUtils.Logger.warn('Error loading countries.geojson for offline geocoding', error);
@@ -125,7 +125,7 @@ function getPlaceDetailsOptIn() {
 function setPlaceDetailsOptIn(value) {
     try {
         localStorage.setItem(STORAGE_KEY_PLACE_DETAILS_OPT_IN, value ? 'true' : 'false');
-    } catch (e) {}
+    } catch (e) { }
 }
 
 // Lazy-load scripts to reduce initial bundle and improve FCP/LCP
@@ -239,19 +239,19 @@ function initializeYearFilter(availableYears) {
     const timelineContainer = document.getElementById('timeline-years');
     const timelineSelectorContainer = document.getElementById('timeline-selector-container');
     const yearTimelineBar = document.getElementById('year-timeline-bar');
-    
+
     if (!timelineContainer) return;
-    
+
     timelineContainer.innerHTML = '';
 
     // Add sliding knob for active year (like theme toggle)
     const knob = document.createElement('span');
     knob.className = 'timeline-switch-knob';
     timelineContainer.appendChild(knob);
-    
+
     // Sort years ascending for timeline display (oldest to newest left to right)
     availableYears.sort((a, b) => a - b);
-    
+
     // Show the timeline selector and bar only if we have years (i.e., data processed)
     if (availableYears.length > 0 && timelineSelectorContainer) {
         timelineSelectorContainer.classList.remove('hidden');
@@ -263,7 +263,7 @@ function initializeYearFilter(availableYears) {
     } else if (yearTimelineBar) {
         yearTimelineBar.classList.add('hidden');
     }
-    
+
     // Add "All" button first
     const allYearsBtn = document.createElement('button');
     allYearsBtn.className = 'timeline-year-btn' + (!selectedYear ? ' active' : '');
@@ -282,7 +282,7 @@ function initializeYearFilter(availableYears) {
         yearBtn.dataset.year = year;
         yearBtn.textContent = year;
         yearBtn.addEventListener('click', () => selectTimelineYear(year.toString()));
-        
+
         timelineContainer.appendChild(yearBtn);
     });
 
@@ -337,14 +337,14 @@ function selectTimelineYear(year) {
     selectedYear = year === '' ? null : year;
     localStorage.setItem('mapYear', year);
     updateTimelineSelection();
-    
+
     // Update header title
     if (selectedYear) {
         document.getElementById('header-title').textContent = `Your ${selectedYear} Recap`;
     } else {
         document.getElementById('header-title').textContent = `Your Travel Recap`;
     }
-    
+
     // Trigger the same filter logic as the old dropdown
     onYearFilterChange({ target: { value: year } });
 }
@@ -366,7 +366,7 @@ function scrollActiveYearToCenter() {
 function updateTimelineSelection() {
     const timelineContainer = document.getElementById('timeline-years');
     if (!timelineContainer) return;
-    
+
     // Update all year buttons
     const yearBtns = timelineContainer.querySelectorAll('.timeline-year-btn');
     yearBtns.forEach(btn => {
@@ -395,28 +395,36 @@ function updateTimelineSelection() {
 // ===== GLOBAL THEME SYSTEM =====
 
 let currentTheme = 'dark';
+let themeGeoJSONLayer = null; // GeoJSON tint overlay for map theming
 
-// Initialize global theme (website always dark; toggle only affects globe + map style)
+// Initialize global theme via themeLoader
 function initGlobalTheme() {
     // Website is always dark
     document.body.classList.add('dark');
 
-    // Globe/map style: saved preference or default dark
-    const savedTheme = localStorage.getItem('appTheme');
-    if (savedTheme === 'dark' || savedTheme === 'light') {
-        currentTheme = savedTheme;
+    if (typeof themeLoader !== 'undefined' && themeLoader.init) {
+        themeLoader.init().then(data => {
+            const themeName = themeLoader.getActiveThemeName();
+            const isDark = themeLoader.isThemeDark(data);
+            currentTheme = isDark ? 'dark' : 'light';
+            document.body.setAttribute('data-globe-map-style', currentTheme);
+            if (map) {
+                switchMapStyle(currentTheme);
+                applyThemeGeoJSONOverlay(data);
+            } else {
+                currentStyle = currentTheme;
+            }
+            buildThemeDropdown();
+            updateThemeSwatch(data);
+            // Preload all themes in the background
+            requestIdleCallback ? requestIdleCallback(() => themeLoader.preloadAll()) : setTimeout(() => themeLoader.preloadAll(), 2000);
+        }).catch(() => {
+            document.body.setAttribute('data-globe-map-style', 'dark');
+            buildThemeDropdown();
+        });
     } else {
-        currentTheme = 'dark';
+        document.body.setAttribute('data-globe-map-style', 'dark');
     }
-
-    document.body.setAttribute('data-globe-map-style', currentTheme);
-    updateThemeButtons();
-    if (map) {
-        switchMapStyle(currentTheme);
-    } else {
-        currentStyle = currentTheme;
-    }
-    localStorage.setItem('appTheme', currentTheme);
 }
 
 // ===== GLOBAL LOADING OVERLAY =====
@@ -490,46 +498,145 @@ function hideLoadingScreen() {
     }
 }
 
-// Apply globe/map style only (website stays dark)
-function applyGlobalTheme(theme) {
-    currentTheme = theme;
-    const body = document.body;
-
-    body.classList.add('dark');
-    body.setAttribute('data-globe-map-style', theme);
-
-    updateThemeButtons();
-    if (map) {
-        switchMapStyle(theme);
-    } else {
-        currentStyle = theme;
-    }
-    localStorage.setItem('appTheme', theme);
+// Apply globe/map style from theme-loader
+function applyGlobalTheme(themeName) {
+    if (typeof themeLoader === 'undefined') return;
+    themeLoader.setActiveTheme(themeName).then(data => {
+        const isDark = themeLoader.isThemeDark(data);
+        currentTheme = isDark ? 'dark' : 'light';
+        const body = document.body;
+        body.classList.add('dark');
+        body.setAttribute('data-globe-map-style', currentTheme);
+        if (map) {
+            switchMapStyle(currentTheme);
+            applyThemeGeoJSONOverlay(data);
+        } else {
+            currentStyle = currentTheme;
+        }
+        updateThemeSwatch(data);
+        updateThemeDropdownSelection(themeName);
+    }).catch(err => logError('Theme switch failed', err));
 }
 
-// Update theme button states
-function updateThemeButtons() {
-    const lightBtn = document.getElementById('theme-light');
-    const darkBtn = document.getElementById('theme-dark');
-    
-    if (!lightBtn || !darkBtn) return;
-    
-    if (currentTheme === 'light') {
-        lightBtn.classList.add('active');
-        darkBtn.classList.remove('active');
-        lightBtn.setAttribute('aria-pressed', 'true');
-        darkBtn.setAttribute('aria-pressed', 'false');
-    } else {
-        lightBtn.classList.remove('active');
-        darkBtn.classList.add('active');
-        lightBtn.setAttribute('aria-pressed', 'false');
-        darkBtn.setAttribute('aria-pressed', 'true');
+// Update the active swatch and label in the dropdown button
+function updateThemeSwatch(data) {
+    const swatch = document.getElementById('theme-swatch-active');
+    const label = document.getElementById('theme-dropdown-label');
+    if (swatch && data) {
+        swatch.style.background = `linear-gradient(135deg, ${data.bg} 50%, ${data.road_motorway || data.text} 50%)`;
     }
+    if (label && data) {
+        label.textContent = data.name || 'Theme';
+    }
+}
+
+// Build theme dropdown options
+function buildThemeDropdown() {
+    const menu = document.getElementById('theme-dropdown-menu');
+    const btn = document.getElementById('theme-dropdown-btn');
+    if (!menu || !btn || typeof themeLoader === 'undefined') return;
+
+    // Move menu to body so it escapes the taskbar's transform containing block
+    document.body.appendChild(menu);
+
+    const names = themeLoader.getAllThemeNames();
+    const activeName = themeLoader.getActiveThemeName();
+    menu.innerHTML = '';
+
+    names.forEach(name => {
+        const opt = document.createElement('div');
+        opt.className = 'theme-option' + (name === activeName ? ' active' : '');
+        opt.dataset.theme = name;
+        opt.setAttribute('role', 'option');
+        opt.setAttribute('aria-selected', name === activeName ? 'true' : 'false');
+
+        // Load theme data for swatch preview
+        themeLoader.loadTheme(name).then(td => {
+            opt.innerHTML = `<span class="theme-swatch" style="background:linear-gradient(135deg, ${td.bg} 50%, ${td.road_motorway || td.text} 50%)"></span><span class="theme-option-label">${td.name || themeLoader.themeLabel(name)}</span>`;
+        }).catch(() => {
+            opt.innerHTML = `<span class="theme-swatch"></span><span class="theme-option-label">${themeLoader.themeLabel(name)}</span>`;
+        });
+
+        opt.addEventListener('click', () => {
+            applyGlobalTheme(name);
+            menu.classList.remove('open');
+            btn.setAttribute('aria-expanded', 'false');
+        });
+        menu.appendChild(opt);
+    });
+
+    // Toggle dropdown
+    btn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        const isOpen = menu.classList.contains('open');
+        if (!isOpen) {
+            // Position the fixed menu above the button
+            const rect = btn.getBoundingClientRect();
+            menu.style.bottom = (window.innerHeight - rect.top + 8) + 'px';
+            menu.style.left = Math.max(8, rect.left + rect.width / 2 - 100) + 'px';
+        }
+        menu.classList.toggle('open', !isOpen);
+        btn.setAttribute('aria-expanded', !isOpen ? 'true' : 'false');
+    });
+
+    // Close on outside click
+    document.addEventListener('click', (e) => {
+        if (!menu.contains(e.target) && !btn.contains(e.target)) {
+            menu.classList.remove('open');
+            btn.setAttribute('aria-expanded', 'false');
+        }
+    });
+}
+
+// Update which option in the dropdown is marked active
+function updateThemeDropdownSelection(activeName) {
+    const menu = document.getElementById('theme-dropdown-menu');
+    if (!menu) return;
+    menu.querySelectorAll('.theme-option').forEach(opt => {
+        const isActive = opt.dataset.theme === activeName;
+        opt.classList.toggle('active', isActive);
+        opt.setAttribute('aria-selected', isActive ? 'true' : 'false');
+    });
+}
+
+// Apply a semi-transparent GeoJSON overlay on the Leaflet map tinted by theme colors
+function applyThemeGeoJSONOverlay(themeData) {
+    if (!map || typeof L === 'undefined' || !themeData) return;
+
+    // Remove old overlay
+    if (themeGeoJSONLayer && map.hasLayer(themeGeoJSONLayer)) {
+        map.removeLayer(themeGeoJSONLayer);
+        themeGeoJSONLayer = null;
+    }
+
+    // If we have country GeoJSON cached, add a tint overlay
+    if (countryGeoJSONCache) {
+        themeGeoJSONLayer = L.geoJSON(countryGeoJSONCache, {
+            style: function () {
+                return {
+                    fillColor: themeData.parks || themeData.bg,
+                    fillOpacity: 0.15,
+                    color: themeData.road_motorway || themeData.text,
+                    weight: 0.3,
+                    opacity: 0.3
+                };
+            },
+            interactive: false
+        });
+        themeGeoJSONLayer.addTo(map);
+        // Ensure it's behind markers
+        themeGeoJSONLayer.bringToBack();
+    }
+}
+
+// Update theme button states (legacy stub — now handled by dropdown)
+function updateThemeButtons() {
+    // Handled by buildThemeDropdown / updateThemeDropdownSelection
 }
 
 // Switch global theme
-function switchGlobalTheme(theme) {
-    applyGlobalTheme(theme);
+function switchGlobalTheme(themeName) {
+    applyGlobalTheme(themeName);
 }
 
 // Handle file upload
@@ -819,7 +926,7 @@ function renderDashboard() {
     renderEcoImpact(advancedStats.eco);
     renderTimeDistribution(advancedStats.time);
     renderRecordBreakers(advancedStats.records, statsSegments);
-    
+
     // 6. Render Transport Breakdown and Top Places (new typography sections)
     renderTransportBreakdown(stats.transport);
     renderTopPlacesSection(stats.visits);
@@ -831,7 +938,7 @@ function renderDashboard() {
 
         // Initialize general scroll animations for stats
         initScrollAnimations();
-        
+
         // Initialize globe-to-map reveal animation (replaces old globe scroll animation)
         initGlobeMapReveal();
     }
@@ -846,19 +953,19 @@ function renderEcoImpact(ecoStats) {
     const vehicleFactor = 150; // g CO2 per km for passenger vehicle
     const savedKg = Math.round((nonVehicleKm * vehicleFactor) / 1000);
     const treesNeeded = Math.ceil(savedKg / 25); // Approx 25kg CO2 per tree per year
-    
+
     // Eco CO2 story element
     const ecoCo2El = document.getElementById('stat-eco-co2');
     if (ecoCo2El) {
         ecoCo2El.textContent = `${savedKg.toLocaleString()} kg CO₂ saved`;
     }
-    
+
     // Trees count element
     const treesCountEl = document.getElementById('stat-trees-count');
     if (treesCountEl) {
         treesCountEl.textContent = treesNeeded.toLocaleString();
     }
-    
+
     // Keep backward compatibility with hidden grid
     const grid = document.getElementById('eco-impact-grid');
     if (grid) {
@@ -871,7 +978,7 @@ function renderTimeDistribution(timeStats) {
     function formatDuration(ms) {
         const hours = ms / (1000 * 60 * 60);
         const days = hours / 24;
-        
+
         if (days >= 1) {
             // Show days if >= 1 day
             const roundedDays = Math.round(days * 10) / 10; // 1 decimal place
@@ -882,10 +989,10 @@ function renderTimeDistribution(timeStats) {
             return { value: roundedHours, unit: roundedHours === 1 ? 'hour' : 'hours' };
         }
     }
-    
+
     const movingFormatted = formatDuration(timeStats.moving);
     const stationaryFormatted = formatDuration(timeStats.stationary);
-    
+
     // Time moving story element
     const timeMovingEl = document.getElementById('stat-time-moving');
     const timeMovingUnitEl = document.getElementById('stat-time-moving-unit');
@@ -895,7 +1002,7 @@ function renderTimeDistribution(timeStats) {
     if (timeMovingUnitEl) {
         timeMovingUnitEl.textContent = movingFormatted.unit;
     }
-    
+
     // Time stationary story element
     const timeStationaryEl = document.getElementById('stat-time-stationary');
     const timeStationaryUnitEl = document.getElementById('stat-time-stationary-unit');
@@ -905,7 +1012,7 @@ function renderTimeDistribution(timeStats) {
     if (timeStationaryUnitEl) {
         timeStationaryUnitEl.textContent = stationaryFormatted.unit;
     }
-    
+
     // Keep backward compatibility with hidden container
     const container = document.getElementById('time-distribution-stats');
     if (container) {
@@ -917,13 +1024,13 @@ function renderRecordBreakers(records, segments) {
     // Calculate records with dates from segments
     let longestDriveRecord = { distance: 0, date: null };
     let longestWalkRecord = { distance: 0, date: null };
-    
+
     segments.forEach(segment => {
         if (segment.activity && segment.activity.distanceMeters) {
             const type = segment.activity.topCandidate?.type || 'UNKNOWN';
             const distance = segment.activity.distanceMeters;
             const date = segment.startTime ? new Date(segment.startTime) : null;
-            
+
             if ((type === 'IN_PASSENGER_VEHICLE' || type === 'IN_VEHICLE') && distance > longestDriveRecord.distance) {
                 longestDriveRecord = { distance, date };
             }
@@ -932,17 +1039,17 @@ function renderRecordBreakers(records, segments) {
             }
         }
     });
-    
+
     // Format date helper
     const formatDate = (date) => {
         if (!date) return '';
         return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
     };
-    
+
     // Update Typography Story Section for Records
     const driveKm = (longestDriveRecord.distance / 1000).toFixed(1);
     const walkKm = (longestWalkRecord.distance / 1000).toFixed(1);
-    
+
     // Longest drive story element
     const longestDriveEl = document.getElementById('stat-longest-drive');
     if (longestDriveEl) {
@@ -952,7 +1059,7 @@ function renderRecordBreakers(records, segments) {
     if (longestDriveDateEl && longestDriveRecord.date) {
         longestDriveDateEl.textContent = formatDate(longestDriveRecord.date);
     }
-    
+
     // Longest walk story element
     const longestWalkEl = document.getElementById('stat-longest-walk');
     if (longestWalkEl) {
@@ -962,7 +1069,7 @@ function renderRecordBreakers(records, segments) {
     if (longestWalkDateEl && longestWalkRecord.date) {
         longestWalkDateEl.textContent = formatDate(longestWalkRecord.date);
     }
-    
+
     // Keep backward compatibility with hidden container
     const container = document.getElementById('record-breakers-stats');
     if (container) {
@@ -992,26 +1099,26 @@ const transportConfig = {
 function renderTransportBreakdown(transportStats) {
     const grid = document.getElementById('stat-transport-grid');
     if (!grid) return;
-    
+
     grid.innerHTML = '';
-    
+
     // Sort by distance (descending), exclude UNKNOWN/Other, take top 8
     const sortedTransport = Object.entries(transportStats)
         .filter(([type]) => type !== 'UNKNOWN')
         .sort(([, a], [, b]) => b.distanceMeters - a.distanceMeters)
         .slice(0, 8);
-    
+
     if (sortedTransport.length === 0) {
         grid.innerHTML = '<p class="col-span-full text-gray-500 dark:text-gray-400">No transport data available</p>';
         return;
     }
-    
+
     sortedTransport.forEach(([type, data]) => {
         const config = transportConfig[type];
         if (!config) return;
         const distanceKm = Math.round(data.distanceMeters / 1000);
         const durationHours = Math.round(data.durationMs / (1000 * 60 * 60));
-        
+
         const card = document.createElement('div');
         card.className = 'transport-stat-card';
         card.innerHTML = `
@@ -1038,8 +1145,7 @@ function renderTopPlacesSection(visitStats) {
         return;
     }
 
-    const apiKey = (getConfig('GOOGLE_PLACES_API_KEY', '') || '').trim();
-    const usePlaceDetailsApi = !!apiKey && getPlaceDetailsOptIn();
+    const usePlaceDetailsApi = getPlaceDetailsOptIn();
 
     allPlaces.forEach((place, index) => {
         const card = document.createElement('div');
@@ -1144,14 +1250,11 @@ function placeDetailsCacheKey(lat, lng) {
 }
 
 /**
- * Fetch place details (address, photo) from Google Places API (New).
- * Requires GOOGLE_PLACES_API_KEY in config with Places API (New) enabled.
- * Returns { displayName, formattedAddress, photoUrl } or null on error/no key.
+ * Fetch place details via server-side proxy (/api/places/search).
+ * The API key stays on the server and never reaches the browser.
+ * Returns { displayName, formattedAddress, photoUrl } or null on error.
  */
 async function fetchPlaceDetails(latLngStr) {
-    const apiKey = getConfig('GOOGLE_PLACES_API_KEY', '');
-    if (!apiKey || typeof apiKey !== 'string' || apiKey.trim() === '') return null;
-
     const parsed = parseLatLngForUrl(latLngStr);
     if (!parsed) return null;
 
@@ -1160,47 +1263,27 @@ async function fetchPlaceDetails(latLngStr) {
 
     try {
         const { lat, lng } = parsed;
-        const searchUrl = 'https://places.googleapis.com/v1/places:searchNearby';
-        const searchBody = JSON.stringify({
-            maxResultCount: 1,
-            rankPreference: 'DISTANCE',
-            locationRestriction: {
-                circle: {
-                    center: { latitude: lat, longitude: lng },
-                    radius: 50
-                }
-            }
-        });
-        const searchRes = await fetch(searchUrl, {
+        const searchRes = await fetch('/api/places/search', {
             method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-                'X-Goog-Api-Key': apiKey,
-                'X-Goog-FieldMask': 'places.id,places.displayName,places.formattedAddress,places.photos'
-            },
-            body: searchBody
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ lat, lng })
         });
         if (!searchRes.ok) {
-            const errText = await searchRes.text();
             if (typeof timelineUtils !== 'undefined' && timelineUtils.Logger) {
-                timelineUtils.Logger.warn('Places searchNearby failed', searchRes.status, errText);
+                timelineUtils.Logger.warn('Places proxy failed', searchRes.status);
             }
             placeDetailsCache[key] = null;
             return null;
         }
-        const searchData = await searchRes.json();
-        const places = searchData.places;
-        if (!places || places.length === 0) {
+        const data = await searchRes.json();
+        if (!data) {
             placeDetailsCache[key] = null;
             return null;
         }
-        const place = places[0];
-        const displayName = place.displayName && place.displayName.text ? place.displayName.text : null;
-        const formattedAddress = place.formattedAddress || null;
+        const { displayName, formattedAddress, photoRef } = data;
         let photoUrl = null;
-        if (place.photos && place.photos.length > 0 && place.photos[0].name) {
-            const photoName = place.photos[0].name;
-            photoUrl = `https://places.googleapis.com/v1/${photoName}/media?maxWidthPx=400&key=${encodeURIComponent(apiKey)}`;
+        if (photoRef) {
+            photoUrl = `/api/places/photo?ref=${encodeURIComponent(photoRef)}&maxWidth=400`;
         }
         const result = { displayName, formattedAddress, photoUrl };
         placeDetailsCache[key] = result;
@@ -1219,13 +1302,13 @@ function renderStatistics(stats) {
     const distanceKm = Math.round(stats.totalDistanceMeters / 1000);
     const uniquePlacesCount = Object.keys(stats.visits || {}).length;
     const countriesCount = stats.countries.size;
-    
+
     // Distance story section
     const distanceEl = document.getElementById('stat-distance');
     if (distanceEl) {
         distanceEl.textContent = `${distanceKm.toLocaleString()} km`;
     }
-    
+
     const distanceSubtitle = document.getElementById('stat-distance-subtitle');
     if (distanceSubtitle) {
         if (distanceKm > 40000) {
@@ -1238,24 +1321,24 @@ function renderStatistics(stats) {
             distanceSubtitle.textContent = "Every kilometer counts.";
         }
     }
-    
+
     // Places & Countries story section
     const placesCount = document.getElementById('stat-places-count');
     if (placesCount) {
         placesCount.textContent = uniquePlacesCount.toLocaleString();
     }
-    
+
     const countriesCountEl = document.getElementById('stat-countries-count');
     if (countriesCountEl) {
         countriesCountEl.textContent = countriesCount.toLocaleString();
     }
-    
+
     // Visits story section
     const visitsEl = document.getElementById('stat-visits');
     if (visitsEl) {
         visitsEl.textContent = stats.totalVisits.toLocaleString();
     }
-    
+
     // Also keep backward compatibility with hidden grid (for any other code referencing it)
     const grid = document.getElementById('statistics-grid');
     if (grid) {
@@ -2012,68 +2095,68 @@ async function shareCurrentView(mode) {
                 }
             });
 
-        const STORY_WIDTH = 1080;
-        const STORY_HEIGHT = 1920;
-        const storyCanvas = document.createElement('canvas');
-        storyCanvas.width = STORY_WIDTH;
-        storyCanvas.height = STORY_HEIGHT;
-        const storyCtx = storyCanvas.getContext('2d', { willReadFrequently: true });
-        if (!storyCtx) {
-            throw new Error('Share canvas unavailable.');
-        }
+            const STORY_WIDTH = 1080;
+            const STORY_HEIGHT = 1920;
+            const storyCanvas = document.createElement('canvas');
+            storyCanvas.width = STORY_WIDTH;
+            storyCanvas.height = STORY_HEIGHT;
+            const storyCtx = storyCanvas.getContext('2d', { willReadFrequently: true });
+            if (!storyCtx) {
+                throw new Error('Share canvas unavailable.');
+            }
 
-        storyCtx.fillStyle = themeBackground;
-        storyCtx.fillRect(0, 0, STORY_WIDTH, STORY_HEIGHT);
+            storyCtx.fillStyle = themeBackground;
+            storyCtx.fillRect(0, 0, STORY_WIDTH, STORY_HEIGHT);
 
-        const sourceAspect = canvas.width / canvas.height;
-        const targetAspect = STORY_WIDTH / STORY_HEIGHT;
-        let drawWidth = STORY_WIDTH;
-        let drawHeight = STORY_HEIGHT;
-        let offsetX = 0;
-        let offsetY = 0;
+            const sourceAspect = canvas.width / canvas.height;
+            const targetAspect = STORY_WIDTH / STORY_HEIGHT;
+            let drawWidth = STORY_WIDTH;
+            let drawHeight = STORY_HEIGHT;
+            let offsetX = 0;
+            let offsetY = 0;
 
-        if (sourceAspect > targetAspect) {
-            drawHeight = STORY_HEIGHT;
-            drawWidth = canvas.width * (STORY_HEIGHT / canvas.height);
-            offsetX = (STORY_WIDTH - drawWidth) / 2;
-        } else {
-            drawWidth = STORY_WIDTH;
-            drawHeight = canvas.height * (STORY_WIDTH / canvas.width);
-            offsetY = (STORY_HEIGHT - drawHeight) / 2;
-        }
+            if (sourceAspect > targetAspect) {
+                drawHeight = STORY_HEIGHT;
+                drawWidth = canvas.width * (STORY_HEIGHT / canvas.height);
+                offsetX = (STORY_WIDTH - drawWidth) / 2;
+            } else {
+                drawWidth = STORY_WIDTH;
+                drawHeight = canvas.height * (STORY_WIDTH / canvas.width);
+                offsetY = (STORY_HEIGHT - drawHeight) / 2;
+            }
 
-        if (!useMapBackground) {
-            // Shift the globe toward the center so more of it is visible and it sits in the middle of the share image.
-            const horizontalBias = STORY_WIDTH * 0.14;
-            offsetX += horizontalBias;
-        }
+            if (!useMapBackground) {
+                // Shift the globe toward the center so more of it is visible and it sits in the middle of the share image.
+                const horizontalBias = STORY_WIDTH * 0.14;
+                offsetX += horizontalBias;
+            }
 
-        storyCtx.drawImage(canvas, offsetX, offsetY, drawWidth, drawHeight);
+            storyCtx.drawImage(canvas, offsetX, offsetY, drawWidth, drawHeight);
 
-        // Equator center for "Trips Around Earth" text (globe share only)
-        const globeCenter = !useMapBackground ? { x: offsetX + drawWidth / 2, y: offsetY + drawHeight / 2 } : null;
-        drawShareOverlay(storyCanvas, details, 1, isDark, globeCenter);
+            // Equator center for "Trips Around Earth" text (globe share only)
+            const globeCenter = !useMapBackground ? { x: offsetX + drawWidth / 2, y: offsetY + drawHeight / 2 } : null;
+            drawShareOverlay(storyCanvas, details, 1, isDark, globeCenter);
 
-        const blob = await new Promise((resolve) => storyCanvas.toBlob(resolve, 'image/png'));
-        if (!blob) {
-            throw new Error('Image capture failed.');
-        }
+            const blob = await new Promise((resolve) => storyCanvas.toBlob(resolve, 'image/png'));
+            if (!blob) {
+                throw new Error('Image capture failed.');
+            }
 
-        const filename = `travel-recap-${mode}-${Date.now()}.png`;
-        const file = new File([blob], filename, { type: blob.type || 'image/png' });
+            const filename = `travel-recap-${mode}-${Date.now()}.png`;
+            const file = new File([blob], filename, { type: blob.type || 'image/png' });
 
-        if (navigator.canShare && navigator.canShare({ files: [file] })) {
-            await navigator.share({
-                files: [file],
-                title: 'Travel Recap',
-                text: 'Share your travel story with the world @',
-                url: 'https://www.mytravelrecap.com'
-            });
-            showShareToast('Shared. You can post it from the share sheet.', 'success');
-        } else {
-            triggerDownload(blob, filename);
-            showShareToast('Downloaded. Upload to Instagram manually.', 'info');
-        }
+            if (navigator.canShare && navigator.canShare({ files: [file] })) {
+                await navigator.share({
+                    files: [file],
+                    title: 'Travel Recap',
+                    text: 'Share your travel story with the world @',
+                    url: 'https://www.mytravelrecap.com'
+                });
+                showShareToast('Shared. You can post it from the share sheet.', 'success');
+            } else {
+                triggerDownload(blob, filename);
+                showShareToast('Downloaded. Upload to Instagram manually.', 'info');
+            }
         } finally {
             if (useMapBackground && mapContainer) {
                 mapContainer.classList.remove('share-capture');
@@ -2234,7 +2317,7 @@ function renderVisitTrends(visitStats) {
 function renderHighlights(visitStats, segments) {
     // Note: In the new typography-first layout, places-grid and cities-grid are hidden
     // divs for backward compatibility. We just clear them; no section visibility toggling.
-    
+
     // 1. Places Highlights (Top visited) - now handled by typography sections
     const placesGrid = document.getElementById('places-grid');
     if (placesGrid) {
@@ -2631,21 +2714,17 @@ if (document.readyState === 'loading') {
     document.addEventListener('DOMContentLoaded', () => {
         // Initialize global theme first
         initGlobalTheme();
-        
+
         // Initialize map
         // Defer map initialization until user opens the map overlay.
-        
+
         // Initialize background globe
         initBackgroundGlobe();
 
         // Load offline country boundaries for reverse geocoding
         loadCountryGeoJSON();
-        
-        // Global theme toggle event listeners
-        const themeLightBtn = document.getElementById('theme-light');
-        const themeDarkBtn = document.getElementById('theme-dark');
-        if (themeLightBtn) themeLightBtn.addEventListener('click', () => switchGlobalTheme('light'));
-        if (themeDarkBtn) themeDarkBtn.addEventListener('click', () => switchGlobalTheme('dark'));
+
+        // Theme dropdown is now initialized by initGlobalTheme() → buildThemeDropdown()
 
         // Place details opt-in toggle (privacy: off by default, persisted in localStorage)
         const placeDetailsOptInBtn = document.getElementById('place-details-opt-in');
@@ -2704,21 +2783,17 @@ if (document.readyState === 'loading') {
 } else {
     // Initialize global theme first
     initGlobalTheme();
-    
+
     // Initialize map
     // Defer map initialization until user opens the map overlay.
-    
+
     // Initialize background globe
     initBackgroundGlobe();
 
     // Load offline country boundaries for reverse geocoding
     loadCountryGeoJSON();
-    
-    // Global theme toggle event listeners
-    const themeLightBtn = document.getElementById('theme-light');
-    const themeDarkBtn = document.getElementById('theme-dark');
-    if (themeLightBtn) themeLightBtn.addEventListener('click', () => switchGlobalTheme('light'));
-    if (themeDarkBtn) themeDarkBtn.addEventListener('click', () => switchGlobalTheme('dark'));
+
+    // Theme dropdown is now initialized by initGlobalTheme() → buildThemeDropdown()
 
     const placeDetailsOptInBtn = document.getElementById('place-details-opt-in');
     if (placeDetailsOptInBtn) {
@@ -2863,7 +2938,7 @@ function initScrollAnimations() {
     // We use a timeout to ensure DOM is fully updated
     setTimeout(() => {
         const triggers = document.querySelectorAll('.scroll-trigger');
-        
+
         // Immediately show the first few sections that are likely in viewport
         triggers.forEach((trigger, index) => {
             // Only observe if not already animated
@@ -2872,7 +2947,7 @@ function initScrollAnimations() {
                 if (trigger.classList.contains('story-section')) {
                     trigger.style.transitionDelay = `${index * 50}ms`;
                 }
-                
+
                 // Immediately trigger first 3 sections to ensure something is visible
                 if (index < 3) {
                     trigger.classList.add('animate-scene-emerge');
@@ -2909,7 +2984,7 @@ function initGlobeMapReveal() {
         clickHandlerAttached = false;
         updateRevealAnimation();
     });
-    
+
     // Original globe position values
     const originalTop = 80; // 5rem = 80px
     const originalLeft = 40;
@@ -2918,10 +2993,10 @@ function initGlobeMapReveal() {
     const maxExpandedSize = maxZoomSize; // Max size before centering
     const centeredSize = maxZoomSize; // Size when centered
     const originalOpacity = 0.5;
-    
+
     // Remove any existing transitions for smooth scroll-linked animation
     globeContainer.style.transition = 'none';
-    
+
     function updateRevealAnimation() {
         const viewportHeight = window.innerHeight;
         const viewportWidth = window.innerWidth;
@@ -2930,31 +3005,31 @@ function initGlobeMapReveal() {
         // Get the reveal section position
         const revealRect = revealSection.getBoundingClientRect();
         const revealSectionHeight = revealSection.offsetHeight;
-        
+
         // Calculate total scrollable height before reveal section
         const revealSectionTop = revealRect.top + scrollTop;
         const scrollableBeforeReveal = revealSectionTop - viewportHeight;
-        
+
         // Calculate expansion progress (0 to 1) based on scroll through page content
         // Globe expands from originalSize to maxExpandedSize as user scrolls through content
         let expansionProgress = 0;
         if (scrollableBeforeReveal > 0) {
             expansionProgress = Math.min(1, Math.max(0, scrollTop / scrollableBeforeReveal));
         }
-        
+
         // Calculate reveal progress (when user reaches the reveal section)
         const triggerPoint = viewportHeight * 0.7;
         const scrollRange = revealSectionHeight * 0.6;
-        
+
         let revealProgress = 0;
         if (revealRect.top < triggerPoint) {
             revealProgress = Math.min(1, Math.max(0, (triggerPoint - revealRect.top) / scrollRange));
         }
-        
+
         // Center of screen position
         const origCenterX = originalLeft + originalSize / 2;
         const origCenterY = originalTop + originalSize / 2;
-        
+
         // Size that covers the whole screen (slightly oversized to fill edges)
         const fullScreenSize = Math.min(Math.max(viewportWidth, viewportHeight) * 1.15, maxZoomSize);
 
@@ -2969,7 +3044,7 @@ function initGlobeMapReveal() {
         if (revealProgress <= 0) {
             // Not in reveal section yet - globe expands in place as user scrolls
             const expandedSize = originalSize + ((maxExpandedSize - originalSize) * expansionProgress);
-            
+
             // Keep globe anchored at original position (top-left stays fixed)
             globeContainer.style.position = 'fixed';
             globeContainer.style.top = `${originalTop}px`;
@@ -2978,7 +3053,7 @@ function initGlobeMapReveal() {
             globeContainer.style.height = `${expandedSize}px`;
             globeContainer.style.opacity = originalOpacity;
             globeContainer.style.zIndex = '0';
-            
+
             if (hint) hint.style.opacity = '0';
             if (allTimeText) allTimeText.classList.remove('visible');
             if (rotationStopped && globe && typeof globe.startRotation === 'function') {
@@ -2990,26 +3065,26 @@ function initGlobeMapReveal() {
             // Globe moves from expanded position to center
             const moveProgress = revealProgress / 0.5; // 0 to 1
             const eased = easeOutCubic(moveProgress);
-            
+
             // Start from current expanded size and position
             const startSize = maxExpandedSize;
             const startCenterX = originalLeft + startSize / 2;
             const startCenterY = originalTop + startSize / 2;
-            
+
             // Interpolate to center
             const currentCenterX = startCenterX + ((window.innerWidth / 2) - startCenterX) * eased;
             const currentCenterY = startCenterY + ((viewportHeight / 2) - startCenterY) * eased;
-            
+
             // Convert center to top-left position
             const currentLeft = currentCenterX - (centeredSize / 2);
             const currentTop = currentCenterY - (centeredSize / 2);
-            
+
             // Opacity increases as it moves to center
             const currentOpacity = originalOpacity + (1 - originalOpacity) * eased;
-            
+
             // Keep globe behind content; never bring to foreground
             const zIndex = '0';
-            
+
             globeContainer.style.position = 'fixed';
             globeContainer.style.left = `${currentLeft}px`;
             globeContainer.style.top = `${currentTop}px`;
@@ -3017,19 +3092,19 @@ function initGlobeMapReveal() {
             globeContainer.style.height = `${centeredSize}px`;
             globeContainer.style.opacity = currentOpacity;
             globeContainer.style.zIndex = zIndex;
-            
+
             if (hint) hint.style.opacity = '0';
             if (allTimeText) allTimeText.classList.remove('visible');
         } else {
             // Globe is now centered - expand to full screen and stay interactive
             const fadeProgress = (revealProgress - 0.5) / 0.5; // 0 to 1
             const eased = easeOutCubic(fadeProgress);
-            
+
             // Expand from centered size to full-screen size while staying centered
             const currentSize = centeredSize + ((fullScreenSize - centeredSize) * eased);
             const currentLeft = (viewportWidth - currentSize) / 2;
             const currentTop = (viewportHeight - currentSize) / 2;
-            
+
             globeContainer.style.position = 'fixed';
             globeContainer.style.left = `${currentLeft}px`;
             globeContainer.style.top = `${currentTop}px`;
@@ -3043,10 +3118,10 @@ function initGlobeMapReveal() {
                 globe.stopRotation();
                 rotationStopped = true;
             }
-            
+
             if (hint) hint.style.opacity = '1';
             if (allTimeText && !isMapOverlayOpen) allTimeText.classList.remove('hidden');
-            
+
             if (!clickHandlerAttached) {
                 clickHandlerAttached = true;
                 globeContainer.addEventListener('click', () => {
@@ -3084,12 +3159,12 @@ function initGlobeMapReveal() {
             }
         }
     }
-    
+
     // Easing function for smoother animation
     function easeOutCubic(t) {
         return 1 - Math.pow(1 - t, 3);
     }
-    
+
     // Scroll handler using requestAnimationFrame for smooth updates
     let ticking = false;
     function onScroll() {
@@ -3101,9 +3176,9 @@ function initGlobeMapReveal() {
             ticking = true;
         }
     }
-    
+
     window.addEventListener('scroll', onScroll, { passive: true });
-    
+
     // Initial update
     updateRevealAnimation();
 }

@@ -12,7 +12,7 @@ function getWorldGeoJSON() {
             }
             const data = await d3.json(WORLD_GEOJSON_URL);
             if (typeof geodataCache !== 'undefined' && typeof geodataCache.set === 'function') {
-                geodataCache.set('world_geojson_v1', data).catch(function () {});
+                geodataCache.set('world_geojson_v1', data).catch(function () { });
             }
             return data;
         })();
@@ -34,28 +34,9 @@ class Globe {
         this.oceanCircle = null;
         this.rotationTimer = null;
         this.scrollProgress = 0;
-        
-        // Theme colors
-        this.themes = {
-            dark: {
-                ocean: '#111827',
-                oceanStroke: '#334155',
-                country: '#334155',
-                countryStroke: '#1e293b',
-                visited: '#38bdf8',
-                glow: 'rgba(56,189,248,0.2)',
-                parallel: 'rgba(148,163,184,0.5)'
-            },
-            light: {
-                ocean: '#60a5fa',          // Blue ocean
-                oceanStroke: '#3b82f6',
-                country: '#4ade80',         // Green land
-                countryStroke: '#22c55e',   // Darker green stroke
-                visited: '#f97316',         // Orange for visited (stands out on green)
-                glow: 'rgba(59,130,246,0.15)',
-                parallel: 'rgba(59,130,246,0.45)'
-            }
-        };
+
+        // Theme colors — derived from active theme JSON via themeLoader
+        this._themeColors = this._buildThemeColors();
 
         if (!this.container) {
             console.error(`Globe container #${containerId} not found`);
@@ -66,13 +47,46 @@ class Globe {
         this.setupThemeListener();
     }
 
-    getCurrentTheme() {
-        return document.body.getAttribute('data-globe-map-style') || 'dark';
+    /** Build a globe color palette from the active theme JSON. */
+    _buildThemeColors() {
+        const td = (typeof themeLoader !== 'undefined' && themeLoader.getActiveThemeData) ? themeLoader.getActiveThemeData() : null;
+        if (!td) {
+            // Fallback dark palette if themeLoader not yet ready
+            return { ocean: '#111827', oceanStroke: '#334155', country: '#334155', countryStroke: '#1e293b', visited: '#38bdf8', glow: 'rgba(56,189,248,0.2)', parallel: 'rgba(148,163,184,0.5)' };
+        }
+        const isDark = typeof themeLoader.isThemeDark === 'function' && themeLoader.isThemeDark(td);
+        return {
+            ocean: td.water || (isDark ? '#111827' : '#60a5fa'),
+            oceanStroke: this._adjustBrightness(td.water || td.bg, isDark ? 20 : -20),
+            country: td.parks || (isDark ? '#334155' : '#4ade80'),
+            countryStroke: this._adjustBrightness(td.parks || td.bg, isDark ? -15 : -25),
+            visited: td.road_motorway || td.text || '#38bdf8',
+            glow: this._hexToRgba(td.road_motorway || td.text || '#38bdf8', 0.2),
+            parallel: this._hexToRgba(td.text || '#94a3b8', 0.5)
+        };
+    }
+
+    /** Adjust hex color brightness by amount (-255 to 255). */
+    _adjustBrightness(hex, amount) {
+        if (!hex || hex.length < 7) return hex || '#333';
+        let r = Math.max(0, Math.min(255, parseInt(hex.slice(1, 3), 16) + amount));
+        let g = Math.max(0, Math.min(255, parseInt(hex.slice(3, 5), 16) + amount));
+        let b = Math.max(0, Math.min(255, parseInt(hex.slice(5, 7), 16) + amount));
+        return '#' + [r, g, b].map(c => c.toString(16).padStart(2, '0')).join('');
+    }
+
+    /** Convert hex to rgba string. */
+    _hexToRgba(hex, alpha) {
+        if (!hex || hex.length < 7) return `rgba(128,128,128,${alpha})`;
+        const r = parseInt(hex.slice(1, 3), 16);
+        const g = parseInt(hex.slice(3, 5), 16);
+        const b = parseInt(hex.slice(5, 7), 16);
+        return `rgba(${r},${g},${b},${alpha})`;
     }
 
     init() {
-        const theme = this.themes[this.getCurrentTheme()];
-        
+        const theme = this._themeColors;
+
         // Create SVG
         this.svg = d3.select(this.container).append("svg")
             .attr("viewBox", `0 0 ${this.width} ${this.height}`)
@@ -155,18 +169,24 @@ class Globe {
             this.setupScrollListener();
         }).catch(err => console.error("Error loading world data:", err));
     }
-    
+
     setupThemeListener() {
-        // Listen for globe/map style changes via data-globe-map-style on body
+        // Listen for theme-changed custom event from themeLoader
+        document.addEventListener('theme-changed', () => {
+            this._themeColors = this._buildThemeColors();
+            this.updateTheme();
+        });
+        // Legacy fallback: also observe data-globe-map-style
         const observer = new MutationObserver(() => {
+            this._themeColors = this._buildThemeColors();
             this.updateTheme();
         });
         observer.observe(document.body, { attributes: true, attributeFilter: ['class', 'data-globe-map-style'] });
     }
-    
+
     updateTheme() {
-        const theme = this.themes[this.getCurrentTheme()];
-        
+        const theme = this._themeColors;
+
         // Update ocean
         if (this.oceanCircle) {
             this.oceanCircle
@@ -175,7 +195,7 @@ class Globe {
                 .attr("fill", theme.ocean)
                 .attr("stroke", theme.oceanStroke);
         }
-        
+
         // Update countries
         if (this.countries) {
             this.countries
